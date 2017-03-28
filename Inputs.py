@@ -22,33 +22,33 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1
 
 
 
-def get_filename_list(path):
-  #fd = open(path)
-
-  fileNames = os.listdir(path)
-  sorted_filenames = sorted(fileNames) #sort by names to get img and label after each other
-
-  image_filenames = []
-  label_filenames = []
-  filenames = []
-  for i in range (0, len(sorted_filenames), 2):
-    image_filenames.append(sorted_filenames[i])
-    label_filenames.append(sorted_filenames[i+1])
-  return image_filenames, label_filenames
-
 # def get_filename_list(path):
-#   print('getting filename list')
-#   fd = open(path)
+#   #fd = open(path)
+#
+#   fileNames = os.listdir(path)
+#   sorted_filenames = sorted(fileNames) #sort by names to get img and label after each other
+#
 #   image_filenames = []
 #   label_filenames = []
 #   filenames = []
-#   for i in fd:
-#     print('image filename is: ')
-#     print(i)
-#     i = i.strip().split(" ")
-#     image_filenames.append(i[0])
-#     label_filenames.append(i[1])
+#   for i in range (0, len(sorted_filenames), 2):
+#     image_filenames.append(sorted_filenames[i])
+#     label_filenames.append(sorted_filenames[i+1])
 #   return image_filenames, label_filenames
+
+def get_filename_list(path):
+  print('getting filename list')
+  fd = open(path)
+  image_filenames = []
+  label_filenames = []
+  filenames = []
+  for i in fd:
+    print('image filename is: ')
+    print(i)
+    i = i.strip().split(" ")
+    image_filenames.append(i[0])
+    label_filenames.append(i[1])
+  return image_filenames, label_filenames
 
 def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: camVidInputs
 
