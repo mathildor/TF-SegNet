@@ -50,6 +50,10 @@ def train():
     # updates the model parameters.
     train_op = model.train(loss, global_step)
 
+    # The op for initializing the variables.
+    init_op = tf.group(tf.initialize_all_variables(),
+                       tf.initialize_local_variables())
+
     createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images, labels)
 
 
@@ -98,7 +102,7 @@ def createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images,
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
         if step % 10 == 0:
-          num_examples_per_step = batch_size
+          2xamples_per_step = batch_size
           examples_per_sec = num_examples_per_step / duration
           sec_per_batch = float(duration)
 
