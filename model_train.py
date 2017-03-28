@@ -18,10 +18,10 @@ def train():
   batch_size = BATCH_SIZE
   train_dir = "./tmp/logs"
   #image_filenames, label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/train.txt")
-  image_filenames, label_filenames = get_filename_list("dataset/CamVid/train.txt")
+  image_filenames, label_filenames = get_filename_list("../dataset/CamVid/train.txt")
   #image_filenames, label_filenames = Inputs.get_filename_list("./dataset/dummy_set/train/images")
   #val_image_filenames, val_label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/val.txt")
-  val_image_filenames, val_label_filenames = Inputs.get_filename_list("dataset/CamVid/val.txt")
+  val_image_filenames, val_label_filenames = Inputs.get_filename_list("../dataset/CamVid/val.txt")
   #val_image_filenames, val_label_filenames = Inputs.get_filename_list("./dataset/dummy_set/val/images")
 
   with tf.Graph().as_default():
@@ -154,7 +154,7 @@ def test():
   batch_size = 1
 
   # image_filenames, label_filenames = Inputs.get_filename_list("./dataset/dummy_set/val/images") #just for testing, should use diff images
-  image_filenames, label_filenames = Inputs.get_filename_list("dataset/CamVid/test.txt") #just for testing, should use diff images
+  image_filenames, label_filenames = Inputs.get_filename_list("../dataset/CamVid/test.txt") #just for testing, should use diff images
 
   test_data_node = tf.placeholder(
         tf.float32,

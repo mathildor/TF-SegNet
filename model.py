@@ -189,6 +189,7 @@ def inference(images, labels, phase_train):
   # decode4
   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
+
   """ Start Classify """
   # output predicted class number (6)
   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
@@ -648,11 +649,11 @@ def eval_batches(data, sess, eval_prediction=None):
 
 
 def test():
-  checkpoint_dir = "tmp4/first350/TensorFlow/Logs"
+  checkpoint_dir = "tmp/ckpt/logs"
   # testing should set BATCH_SIZE = 1
   batch_size = 1
 
-  image_filenames, label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/test.txt")
+  image_filenames, label_filenames = get_filename_list("dataset/CamVid/test.txt")
 
   test_data_node = tf.placeholder(
         tf.float32,
@@ -675,7 +676,8 @@ def test():
 
   with tf.Session() as sess:
     # Load checkpoint
-    saver.restore(sess, "tmp4/first350/TensorFlow/Logs/model.ckpt-" )
+    #saver.restore(sess, "tmp4/first350/TensorFlow/Logs/model.ckpt-" )
+    saver.restore(sess, "tmp/ckpt/logs/model.ckpt-" )
     images, labels = get_all_test_data(image_filenames, label_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((NUM_CLASSES, NUM_CLASSES))
