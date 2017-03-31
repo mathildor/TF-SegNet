@@ -5,10 +5,23 @@ import tensorflow as tf
 import model
 import Utils
 import Inputs
-
+import time
+import numpy as np
+from datetime import datetime
+import os
 
 BATCH_SIZE = 1
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
+
+IMAGE_HEIGHT = 360
+IMAGE_WIDTH = 480
+IMAGE_DEPTH = 3 #channels, here RGB
+
+NUM_CLASSES = 11
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 367
+NUM_EXAMPLES_PER_EPOCH_FOR_TEST = 101
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1
+TEST_ITER = NUM_EXAMPLES_PER_EPOCH_FOR_TEST // BATCH_SIZE
 
 
 def train():
@@ -18,10 +31,10 @@ def train():
   batch_size = BATCH_SIZE
   train_dir = "./tmp/logs"
   #image_filenames, label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/train.txt")
-  image_filenames, label_filenames = Inputs.get_filename_list("../dataset/CamVid/train.txt")
+  image_filenames, label_filenames = Inputs.get_filename_list("../SegNet/CamVid/train.txt")
   #image_filenames, label_filenames = Inputs.get_filename_list("./dataset/dummy_set/train/images")
   #val_image_filenames, val_label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/val.txt")
-  val_image_filenames, val_label_filenames = Inputs.get_filename_list("../dataset/CamVid/val.txt")
+  val_image_filenames, val_label_filenames = Inputs.get_filename_list("../SegNet/CamVid/val.txt")
   #val_image_filenames, val_label_filenames = Inputs.get_filename_list("./dataset/dummy_set/val/images")
 
   with tf.Graph().as_default():
@@ -51,14 +64,9 @@ def train():
     train_op = model.train(loss, global_step)
 
     # The op for initializing the variables.
-    init_op = tf.group(tf.initialize_all_variables(),
-                       tf.initialize_local_variables())
-
-    createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images, labels)
+    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer() )
 
 
-
-def createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images, labels): #lagt til funksjonen selv, usikker på navnet
     max_steps = 20000
 
     # Create a saver.
@@ -102,7 +110,7 @@ def createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images,
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
         if step % 10 == 0:
-          2xamples_per_step = batch_size
+          num_examples_per_step = batch_size
           examples_per_sec = num_examples_per_step / duration
           sec_per_batch = float(duration)
 
@@ -113,13 +121,13 @@ def createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images,
 
           # eval current training batch pre-class accuracy
           pred = sess.run(eval_prediction, feed_dict=feed_dict)
-          per_class_acc(eval_batches(image_batch, sess, eval_prediction=pred), label_batch)
+          model.per_class_acc(model.eval_batches(image_batch, sess, eval_prediction=pred), label_batch)
 
         if step % 100 == 0:
           print("start testing.....")
           total_val_loss = 0.0
           hist = np.zeros((NUM_CLASSES, NUM_CLASSES))
-          for test_step in range(TEST_ITER):
+          for test_step in range(TEST_ITER): #TEST_ITER is a number
             val_images_batch, val_labels_batch = sess.run([val_images, val_labels])
 
             _val_loss, _val_pred = sess.run([loss, eval_prediction], feed_dict={
@@ -128,15 +136,15 @@ def createLogs(loss, eval_prediction, val_images, val_labels, train_dir, images,
               phase_train: True
             })
             total_val_loss += _val_loss
-            hist += get_hist(_val_pred, val_labels_batch)
+            hist += model.get_hist(_val_pred, val_labels_batch)
           print("val loss: ", total_val_loss / TEST_ITER)
           acc_total = np.diag(hist).sum() / hist.sum()
           iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
           test_summary_str = sess.run(average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
           acc_summary_str = sess.run(acc_summary, feed_dict={acc_pl: acc_total})
           iu_summary_str = sess.run(iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
-          print_hist_summery(hist)
-          # per_class_acc(eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
+          model.print_hist_summery(hist)
+          # per_class_acc(model.eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
 
           summary_str = sess.run(summary_op, feed_dict=feed_dict)
           summary_writer.add_summary(summary_str, step)
@@ -194,7 +202,7 @@ def test():
       }
       dense_prediction = sess.run(logits, feed_dict=feed_dict)
       print(dense_prediction.shape)
-      hist += get_hist(dense_prediction, label_batch)
+      hist += model.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
     print("acc: ", acc_total)

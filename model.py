@@ -638,7 +638,7 @@ def eval_batches(data, sess, eval_prediction=None):
   """Get all predictions for a dataset by running it in small batches."""
   size = data.shape[0] # batch_size
   predictions = np.ndarray(shape=(size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CLASSES), dtype=np.float32)
-  for begin in xrange(0, size, EVAL_BATCH_SIZE):
+  for begin in range(0, size, EVAL_BATCH_SIZE):
     end = begin + EVAL_BATCH_SIZE
     if end <= size:
       predictions[begin:end, :] = eval_prediction
