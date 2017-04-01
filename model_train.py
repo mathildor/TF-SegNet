@@ -221,6 +221,8 @@ def test():
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
   logits = model.inference(test_data_node, phase_train)
+
+  #Calculate loss:
   loss = model.cal_loss(logits, test_labels_node)
 
   pred = tf.argmax(logits, dimension=3)
