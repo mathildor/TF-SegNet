@@ -36,6 +36,7 @@ from tensorflow.python.ops import gen_nn_ops
 import skimage
 import skimage.io
 
+FLAGS = tf.app.flags.FLAGS
 
 # modules
 import Utils
@@ -66,31 +67,21 @@ def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
                                                padding=op.get_attr("padding"))
 """
 
-# Global constants describing the data set. Trenger jeg dette?
-
-
-"""Make these into flags?"""
 
 # Constants describing the training process.
-MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.001       # Initial learning rate. - What should this be?! Different in different places
+#NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+#LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 
-EVAL_BATCH_SIZE = 1
-BATCH_SIZE = 1
-READ_DATA_SIZE = 100
+#EVAL_BATCH_SIZE = 1
+#BATCH_SIZE = 1
+#READ_DATA_SIZE = 100
 
 # for CamVid
-IMAGE_HEIGHT = 360
-IMAGE_WIDTH = 480
-IMAGE_DEPTH = 3 #channels, here RGB
+#IMAGE_HEIGHT = 360
+#IMAGE_WEIGHT = 480
+#IMAGE_DEPTH = 3 #channels, here RGB
 
-NUM_CLASSES = 11
-NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 367
-NUM_EXAMPLES_PER_EPOCH_FOR_TEST = 101
-NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1
-TEST_ITER = NUM_EXAMPLES_PER_EPOCH_FOR_TEST / BATCH_SIZE
+#NUM_CLASSES = 11
 
 """
 # Let's load a previously saved meta graph in the default graph
@@ -123,7 +114,6 @@ def inference(images, phase_train):
       Returns:
         logit (scores for the classes, that sums up to 1)
   """
-  batch_size = BATCH_SIZE
   # norm1
     #tf.nn.lrn = local response normalisation
   norm1 = tf.nn.lrn(images, depth_radius=5, bias=1.0, alpha=0.0001, beta=0.75,
@@ -133,7 +123,7 @@ def inference(images, phase_train):
     #shape is used to create kernel (kernel is the filter that will be convolved over the input)
     #shape = [patch_size_width, patch_size_heigh, input_channels, output_channels]
     #input_channels are three since the images has three channels => IMAGE_DEPTH=3
-  conv1 = conv_layer_with_bn(norm1, [7, 7, IMAGE_DEPTH, 64], phase_train, name="conv1")
+  conv1 = conv_layer_with_bn(norm1, [7, 7, FLAGS.image_c, 64], phase_train, name="conv1")
   # pool1
     #max_pool_with_argmax: Args: input tensor to pool over, ksize=window size for input tensor.
     #strides = [bach_size, image_rows, image_cols, number_of_colors].
@@ -165,25 +155,25 @@ def inference(images, phase_train):
   # upsample4
   # Need to change when using different dataset out_w, out_h
   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
-  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, 45, 60, 64], 2, "up4")
+  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [FLAGS.batch_size, 45, 60, 64], 2, "up4")
   # decode 4
   conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
 
   # upsample 3
   # upsample3 = upsample_with_pool_indices(conv_decode4, pool3_indices, conv_decode4.get_shape(), scale=2, name='upsample3')
-  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, 90, 120, 64], 2, "up3")
+  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [FLAGS.batch_size, 90, 120, 64], 2, "up3")
   # decode 3
   conv_decode3 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
 
   # upsample2
   # upsample2 = upsample_with_pool_indices(conv_decode3, pool2_indices, conv_decode3.get_shape(), scale=2, name='upsample2')
-  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, 180, 240, 64], 2, "up2")
+  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [FLAGS.batch_size, 180, 240, 64], 2, "up2")
   # decode 2
   conv_decode2 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
 
   # upsample1
   # upsample1 = upsample_with_pool_indices(conv_decode2, pool1_indices, conv_decode2.get_shape(), scale=2, name='upsample1')
-  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, 360, 480, 64], 2, "up1")
+  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [FLAGS.batch_size, 360, 480, 64], 2, "up1")
   # decode4
   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
@@ -192,11 +182,11 @@ def inference(images, phase_train):
   # output predicted class number (6)
   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
     kernel = _variable_with_weight_decay('weights',
-                                         shape=[1, 1, 64, NUM_CLASSES],
+                                         shape=[1, 1, 64, FLAGS.num_class],
                                          initializer=msra_initializer(1, 64),
                                          wd=0.0005)
     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [NUM_CLASSES], tf.constant_initializer(0.0))
+    biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
   #logit = conv_classifier
 
@@ -213,7 +203,7 @@ def loss(logits, labels):
       loss func without re-weighting
   """
   # Calculate the average cross entropy loss across the batch.
-  logits = tf.reshape(logits, (-1, NUM_CLASSES))
+  logits = tf.reshape(logits, (-1, FLAGS.num_class))
   labels = tf.reshape(labels, [-1])
 
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits( #one-hot-encoding
@@ -267,23 +257,23 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
 
 def cal_loss(logits, labels):
   """ Assigning loss_weight and using weighted loss because of unbalanced dataset """
-    loss_weight = np.array([
-      0.2595,
-      0.1826,
-      4.5640,
-      0.1417,
-      0.9051,
-      0.3826,
-      9.6446,
-      1.8418,
-      0.6823,
-      6.2478,
-      7.3614,
-    ]) # class 0~10
+  loss_weight = np.array([
+    0.2595,
+    0.1826,
+    4.5640,
+    0.1417,
+    0.9051,
+    0.3826,
+    9.6446,
+    1.8418,
+    0.6823,
+    6.2478,
+    7.3614,
+  ]) # class 0~10
 
-    labels = tf.cast(labels, tf.int32)
+  labels = tf.cast(labels, tf.int32)
 
-    return weighted_loss(logits, labels, num_classes=NUM_CLASSES, head=loss_weight)
+  return weighted_loss(logits, labels, num_classes=FLAGS.num_class, head=loss_weight)
 
 def train(total_loss, global_step):
 
@@ -311,7 +301,7 @@ def train(total_loss, global_step):
   num_batches_per_epoch = 274/1
 
   """ fixed learning rate """
-  lr = INITIAL_LEARNING_RATE #Setting constant learning rate as it is most common with adam optimizer.
+  lr = FLAGS.learning_rate #Setting constant learning rate as it is most common with adam optimizer.
 
   tf.summary.scalar('learning_rate', lr)
 
@@ -337,7 +327,7 @@ def train(total_loss, global_step):
 
   # Track the moving averages of all trainable variables.
   variable_averages = tf.train.ExponentialMovingAverage(
-      MOVING_AVERAGE_DECAY, global_step)
+      FLAGS.moving_average_decay, global_step)
   variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
@@ -575,11 +565,10 @@ def fast_hist(a, b, n):
   return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
 
 def get_hist(predictions, labels):
-  hist = np.zeros((NUM_CLASSES, NUM_CLASSES))
-  for i in range(BATCH_SIZE):
-    hist += fast_hist(labels[i].flatten(), predictions[i].argmax(2).flatten(), NUM_CLASSES)
+  hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
+  for i in range(FLAGS.batch_size):
+    hist += fast_hist(labels[i].flatten(), predictions[i].argmax(2).flatten(), FLAGS.num_class)
   return hist
-
 
 
 def print_hist_summery(hist):
@@ -587,7 +576,7 @@ def print_hist_summery(hist):
   print ('accuracy = %f'%np.nanmean(acc_total))
   iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
   print ('mean IU  = %f'%np.nanmean(iu))
-  for ii in range(NUM_CLASSES):
+  for ii in range(FLAGS.num_class):
       if float(hist.sum(1)[ii]) == 0:
         acc = 0.0
       else:
@@ -597,7 +586,7 @@ def print_hist_summery(hist):
 
 def per_class_acc(predictions, label_tensor):
   labels = label_tensor
-  num_class = NUM_CLASSES
+  num_class = FLAGS.num_class
   size = predictions.shape[0]
   hist = np.zeros((num_class, num_class))
   for i in range(size):
@@ -617,61 +606,12 @@ def per_class_acc(predictions, label_tensor):
 def eval_batches(data, sess, eval_prediction=None):
   """Get all predictions for a dataset by running it in small batches."""
   size = data.shape[0] # batch_size
-  predictions = np.ndarray(shape=(size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CLASSES), dtype=np.float32)
-  for begin in range(0, size, EVAL_BATCH_SIZE):
-    end = begin + EVAL_BATCH_SIZE
+  predictions = np.ndarray(shape=(size, FLAGS.image_h, FLAGS.image_w, FLAGS.num_class), dtype=np.float32)
+  for begin in range(0, size, FLAGS.eval_batch_size):
+    end = begin + FLAGS.eval_batch_size
     if end <= size:
       predictions[begin:end, :] = eval_prediction
     else:
       batch_predictions = eval_prediction
       predictions[begin:, :] = batch_predictions[begin - size:, :]
   return predictions
-
-
-def test():
-  checkpoint_dir = "tmp/ckpt/logs"
-  # testing should set BATCH_SIZE = 1
-  batch_size = 1
-
-  image_filenames, label_filenames = get_filename_list("dataset/CamVid/test.txt")
-
-  test_data_node = tf.placeholder(
-        tf.float32,
-        shape=[batch_size, 360, 480, 3])
-
-  test_labels_node = tf.placeholder(tf.int64, shape=[batch_size, 360, 480, 1])
-
-  phase_train = tf.placeholder(tf.bool, name='phase_train')
-
-  logits = inference(test_data_node, phase_train)
-  loss = cal_loss(logits, test_labels_node)
-  # pred = tf.argmax(logits, dimension=3)
-
-  # get moving avg
-  variable_averages = tf.train.ExponentialMovingAverage(
-                      MOVING_AVERAGE_DECAY)
-  variables_to_restore = variable_averages.variables_to_restore()
-
-  saver = tf.train.Saver(variables_to_restore)
-
-  with tf.Session() as sess:
-    # Load checkpoint
-    #saver.restore(sess, "tmp4/first350/TensorFlow/Logs/model.ckpt-" )
-    saver.restore(sess, "tmp/ckpt/logs/model.ckpt-" )
-    images, labels = get_all_test_data(image_filenames, label_filenames)
-    threads = tf.train.start_queue_runners(sess=sess)
-    hist = np.zeros((NUM_CLASSES, NUM_CLASSES))
-    for image_batch, label_batch  in zip(images, labels):
-      print(image_batch.shape, label_batch.shape)
-      feed_dict = {
-        test_data_node: image_batch,
-        test_labels_node: label_batch,
-        phase_train: False
-      }
-      dense_prediction = sess.run(logits, feed_dict=feed_dict)
-      print(dense_prediction.shape)
-      hist += get_hist(dense_prediction, label_batch)
-    acc_total = np.diag(hist).sum() / hist.sum()
-    iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
-    print("acc: ", acc_total)
-    print("mean IU: ", np.nanmean(iu))
