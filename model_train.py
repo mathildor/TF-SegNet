@@ -29,7 +29,7 @@ def train():
 
 
   batch_size = BATCH_SIZE
-  train_dir = "./tmp/logs"
+  train_dir = "./tmp1/logs"
   #image_filenames, label_filenames = get_filename_list("tmp3/first350/SegNet-Tutorial/CamVid/train.txt")
   image_filenames, label_filenames = Inputs.get_filename_list("../SegNet/CamVid/train.txt")
   #image_filenames, label_filenames = Inputs.get_filename_list("./dataset/dummy_set/train/images")
@@ -54,10 +54,16 @@ def train():
     images, labels = Inputs.datasetInputs(image_filenames, label_filenames, BATCH_SIZE) #prev name for datasetInputs = CamVidInputs
 
     val_images, val_labels = Inputs.datasetInputs(val_image_filenames, val_label_filenames, BATCH_SIZE)
+
+
     # Build a Graph that computes the logits predictions from the
     # inference model.
+    logits = model.inference(train_data_node, phase_train)
 
-    loss, eval_prediction = model.inference(train_data_node, train_labels_node, phase_train)
+    #Calculate loss:
+    loss = model.cal_loss(logits, train_labels_node)
+
+    # removed line-> loss, eval_prediction = model.inference(train_data_node, train_labels_node, phase_train)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
@@ -93,6 +99,8 @@ def train():
       average_summary = tf.summary.scalar("test_average_loss", average_pl)
       acc_summary = tf.summary.scalar("test_accuracy", acc_pl)
       iu_summary = tf.summary.scalar("Mean_IU", iu_pl)
+
+      """ Starting iterations to train the network """
       for step in range(max_steps):
         image_batch ,label_batch = sess.run([images, labels])
         # since we still use mini-batches in eval, still set bn-layer phase_train = True
@@ -120,7 +128,7 @@ def train():
                                examples_per_sec, sec_per_batch))
 
           # eval current training batch pre-class accuracy
-          pred = sess.run(eval_prediction, feed_dict=feed_dict)
+          pred = sess.run(logits, feed_dict=feed_dict)
           model.per_class_acc(model.eval_batches(image_batch, sess, eval_prediction=pred), label_batch)
 
         if step % 100 == 0:
@@ -130,7 +138,7 @@ def train():
           for test_step in range(TEST_ITER): #TEST_ITER is a number
             val_images_batch, val_labels_batch = sess.run([val_images, val_labels])
 
-            _val_loss, _val_pred = sess.run([loss, eval_prediction], feed_dict={
+            _val_loss, _val_pred = sess.run([loss, logits], feed_dict={
               train_data_node: val_images_batch,
               train_labels_node: val_labels_batch,
               phase_train: True
@@ -176,8 +184,8 @@ def test():
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-  loss, logits = model.inference(test_data_node, test_labels_node, phase_train)
-
+  logits = model.inference(test_data_node, phase_train)
+  loss = model.cal_loss(logits, test_labels_node)
   # pred = tf.argmax(logits, dimension=3)
 
   # get moving avg

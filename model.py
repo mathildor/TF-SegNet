@@ -108,7 +108,7 @@ hyperparameters = tf.get_collection('hyperparameters')
 """
 
 
-def inference(images, labels, phase_train):
+def inference(images, phase_train):
   """ Inference = slutning. It builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -117,12 +117,10 @@ def inference(images, labels, phase_train):
       are of different types. Block one for example has two conv-batch-relu layer and one pooling layer.
 
       Args:
-        images: Images Tensors ?
-        labels:
+        images: Images Tensors
         phase_train:
 
       Returns:
-        loss
         logit (scores for the classes, that sums up to 1)
   """
   batch_size = BATCH_SIZE
@@ -199,16 +197,17 @@ def inference(images, labels, phase_train):
                                          wd=0.0005)
     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [NUM_CLASSES], tf.constant_initializer(0.0))
-    conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name)
+    conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
+  #logit = conv_classifier
 
-  logit = conv_classifier
-  loss = cal_loss(conv_classifier, labels)
-
-  return loss, logit
+  return conv_classifier
 
 
 def loss(logits, labels):
-  """ Adds to the inference graph the ops required to generate loss.
+  """
+  !! Not used for now, but might use if dataset used is not unbalanced !!
+
+  Adds to the inference graph the ops required to generate loss.
   Here the one-hot-encoding is done.
 
       loss func without re-weighting
@@ -218,25 +217,56 @@ def loss(logits, labels):
   labels = tf.reshape(labels, [-1])
 
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits( #one-hot-encoding
-      logits, labels, name='cross_entropy_per_example')
-  tf.add_to_collection('losses', cross_entropy_mean)
+      labels=labels, logits=logits, name='cross_entropy_per_example')
   #reduce mean -> average the cross entropy accross the batch dimension
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+  tf.add_to_collection('losses', cross_entropy_mean)
 
+  # The total loss is defined as the cross entropy loss plus all of the weight
+  # decay terms (L2 loss).
   return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
+def weighted_loss(logits, labels, num_classes, head=None): #None is default value (if no other is given)
+  """Calculate the loss from the logits and the labels.
+  Args:
+    logits: tensor, float - [batch_size, width, height, num_classes].
+        Use vgg_fcn.up as logits.
+    labels: Labels tensor, int32 - [batch_size, width, height, num_classes].
+        The ground truth of your data.
+    head: numpy array - [num_classes]
+        Weighting the loss of each class
+        Optional: Prioritize some classes
+  Returns:
+    loss: Loss tensor of type float.
+  """
+  with tf.name_scope('loss'):
+
+      logits = tf.reshape(logits, (-1, num_classes))
+
+      epsilon = tf.constant(value=1e-10)
+
+      logits = logits + epsilon
+
+      # construct one-hot label array
+      label_flat = tf.reshape(labels, (-1, 1))
+
+      # should be [batch ,num_classes]
+      labels = tf.reshape(tf.one_hot(label_flat, depth=num_classes), (-1, num_classes))
+
+      softmax = tf.nn.softmax(logits)
+
+      cross_entropy = -tf.reduce_sum(tf.multiply(labels * tf.log(softmax + epsilon), head), reduction_indices=[1])
+
+      cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+
+      tf.add_to_collection('losses', cross_entropy_mean)
+
+      loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+  return loss
 
 def cal_loss(logits, labels):
-    """
-    loss_weight = np.asarray([
-      0.0616944799702,
-      3.89114328416,
-      0.718496198987,
-      3.24645148591,
-      1.64418466389,
-      0.0182122198045
-    ]) # class 0~5
-    """
+  """ Assigning loss_weight and using weighted loss because of unbalanced dataset """
     loss_weight = np.array([
       0.2595,
       0.1826,
@@ -252,62 +282,22 @@ def cal_loss(logits, labels):
     ]) # class 0~10
 
     labels = tf.cast(labels, tf.int32)
-    # return loss(logits, labels)
+
     return weighted_loss(logits, labels, num_classes=NUM_CLASSES, head=loss_weight)
-
-def weighted_loss(logits, labels, num_classes, head=None):
-    """Calculate the loss from the logits and the labels.
-    Args:
-      logits: tensor, float - [batch_size, width, height, num_classes].
-          Use vgg_fcn.up as logits.
-      labels: Labels tensor, int32 - [batch_size, width, height, num_classes].
-          The ground truth of your data.
-      head: numpy array - [num_classes]
-          Weighting the loss of each class
-          Optional: Prioritize some classes
-    Returns:
-      loss: Loss tensor of type float.
-    """
-    with tf.name_scope('loss'):
-
-        logits = tf.reshape(logits, (-1, num_classes))
-
-        epsilon = tf.constant(value=1e-10)
-
-        logits = logits + epsilon
-
-        # consturct one-hot label array
-        label_flat = tf.reshape(labels, (-1, 1))
-
-        # should be [batch ,num_classes]
-        labels = tf.reshape(tf.one_hot(label_flat, depth=num_classes), (-1, num_classes))
-
-        softmax = tf.nn.softmax(logits)
-
-        cross_entropy = -tf.reduce_sum(tf.multiply(labels * tf.log(softmax + epsilon), head), reduction_indices=[1])
-
-        cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-
-        tf.add_to_collection('losses', cross_entropy_mean)
-
-        loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
-
-    return loss
-
 
 def train(total_loss, global_step):
 
   """ Training the SegNet model
     This train method is only for building the graph - defines the part of the graph
-    that is needed for traingin. The actual training is done in the train() in model_train.py.
+    that is needed for training. The actual training is done in the train() in model_train.py.
 
     ? Adds to the loss graph the ops required to compute and apply gradients.?
 
-    Create an optimizer and apply to all trainable variables. Add moving
-    average for all trainable variables??
+    Create an optimizer and apply to all trainable variables.
+    Add moving average for all trainable variables??
 
     Args:
-      total_loss: Total loss from loss().
+      total_loss: Total loss from loss(), -  or cal_loss() in this case?
       global_step: Integer Variable counting the number of training steps
         processed.
     Returns:
@@ -315,19 +305,25 @@ def train(total_loss, global_step):
 
   """
 
-  batch_size = BATCH_SIZE
-  total_sample = 274
+  #total_sample = 274
+
+  #Variables that affect learning rate.
   num_batches_per_epoch = 274/1
-  """ fix lr """
-  lr = INITIAL_LEARNING_RATE
+
+  """ fixed learning rate """
+  lr = INITIAL_LEARNING_RATE #Setting constant learning rate as it is most common with adam optimizer.
+
+  tf.summary.scalar('learning_rate', lr)
+
+  # Generate moving averages of all losses and associated summaries.
   loss_averages_op = _add_loss_summaries(total_loss)
 
   # Compute gradients.
   with tf.control_dependencies([loss_averages_op]):
-    # opt = tf.train.GradientDescentOptimizer(lr)
-    # opt = tf.train.MomentumOptimizer(lr, 0.9)
     opt = tf.train.AdamOptimizer(lr)
     grads = opt.compute_gradients(total_loss)
+
+  #Apply gradients.
   apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
   # Add histograms for trainable variables.
@@ -361,22 +357,6 @@ def msra_initializer(kl, dl):
     """
     stddev = math.sqrt(2. / (kl**2 * dl))
     return tf.truncated_normal_initializer(stddev=stddev)
-
-def identity_initializer():
-  def _initializer(shape, dtype=tf.float32, partition_info=None):
-      if len(shape) == 1:
-          return tf.constant_op.constant(0., dtype=dtype, shape=shape)
-      elif len(shape) == 2 and shape[0] == shape[1]:
-          return tf.constant_op.constant(np.identity(shape[0], dtype))
-      elif len(shape) == 4 and shape[2] == shape[3]:
-          array = np.zeros(shape, dtype=float)
-          cx, cy = shape[0]/2, shape[1]/2
-          for i in range(shape[2]):
-              array[cx, cy, i, i] = 1
-          return tf.constant(array, dtype=dtype)
-      else:
-          raise
-  return _initializer
 
 def orthogonal_initializer(scale = 1.1):
     ''' From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120
@@ -663,8 +643,8 @@ def test():
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-  loss, logits = inference(test_data_node, test_labels_node, phase_train)
-
+  logits = inference(test_data_node, phase_train)
+  loss = cal_loss(logits, test_labels_node)
   # pred = tf.argmax(logits, dimension=3)
 
   # get moving avg
