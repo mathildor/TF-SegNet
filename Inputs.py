@@ -37,14 +37,11 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1
 #   return image_filenames, label_filenames
 
 def get_filename_list(path):
-  print('getting filename list')
   fd = open(path)
   image_filenames = []
   label_filenames = []
   filenames = []
   for i in fd:
-    print('image filename is: ')
-    print(i)
     i = i.strip().split(" ")
     image_filenames.append(i[0])
     label_filenames.append(i[1])

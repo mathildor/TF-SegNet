@@ -13,7 +13,7 @@ import Inputs
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('testing', '',
+tf.app.flags.DEFINE_string('testing', 'tmp/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                            """ checkpoint file """)
 tf.app.flags.DEFINE_string('finetune', '',
                            """ finetune checkpoint file """)
@@ -23,6 +23,8 @@ tf.app.flags.DEFINE_boolean('save_image', True,
 
 tf.app.flags.DEFINE_integer('batch_size', "5",
                             """ batch_size """)
+tf.app.flags.DEFINE_integer('test_batch_size', "1",
+                            """ batch_size for training """)
 tf.app.flags.DEFINE_integer('eval_batch_size', "5",
                             """ Eval batch_size """)
 
@@ -46,7 +48,7 @@ tf.app.flags.DEFINE_integer('image_w', "480",
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
-"""  -- directories --   """
+""" Directories  """
 tf.app.flags.DEFINE_string('log_dir', "tmp1/logs",
                            """ dir to store ckpt """)
 tf.app.flags.DEFINE_string('image_dir', "../SegNet/CamVid/train.txt",
@@ -65,11 +67,10 @@ TEST_ITER = NUM_EXAMPLES_PER_EPOCH_FOR_TEST // FLAGS.batch_size
 
 
 
-
-
-def train(is_finetune=False):
+def train(is_finetune=False): #Now set to
   """ Train model a number of steps """
 
+  # should be changed if your model stored by different conventio
   startstep = 0 if not is_finetune else int(FLAGS.finetune.split('-')[-1])
 
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.image_dir)
@@ -101,7 +102,6 @@ def train(is_finetune=False):
     #Calculate loss:
     loss = model.cal_loss(logits, train_labels_node)
 
-    # removed line-> loss, eval_prediction = model.inference(train_data_node, train_labels_node, phase_train)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
@@ -132,7 +132,7 @@ def train(is_finetune=False):
       coord = tf.train.Coordinator()
       threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-      summary_writer = tf.summary.FileWriter(FLAGS.image_dir, sess.graph)
+      summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
       average_pl = tf.placeholder(tf.float32)
       acc_pl = tf.placeholder(tf.float32)
       iu_pl = tf.placeholder(tf.float32)
@@ -201,7 +201,7 @@ def train(is_finetune=False):
           summary_writer.add_summary(iu_summary_str, step)
         # Save the model checkpoint periodically.
         if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
-          checkpoint_path = os.path.join(FLAGS.image_dir, 'model.ckpt')
+          checkpoint_path = os.path.join(FLAGS.log_dir, 'model.ckpt')
           saver.save(sess, checkpoint_path, global_step=step)
 
       coord.request_stop()
@@ -209,23 +209,21 @@ def train(is_finetune=False):
 
 
 def test():
-  #checkpoint_dir = "tmp4/first350/TensorFlow/Logs"
-  # testing should set BATCH_SIZE = 1
+  print("----------- !!!!!!!!!!in test method!!!!!!!!!!!!!! ----------")
 
-  # image_filenames, label_filenames = Inputs.get_filename_list("./dataset/dummy_set/val/images") #just for testing, should use diff images
-  image_filenames, label_filenames = Inputs.get_filename_list("../dataset/CamVid/test.txt") #just for testing, should use diff images
-
+  image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.test_dir)
   test_data_node = tf.placeholder(
         tf.float32,
-        shape=[FLAGS.batch_size, 360, 480, 3])
+        shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
 
-  test_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.batch_size, 360, 480, 1])
+  test_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.test_batch_size, FLAGS.image_h, FLAGS.image_w, 1])
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
   logits = model.inference(test_data_node, phase_train)
   loss = model.cal_loss(logits, test_labels_node)
-  # pred = tf.argmax(logits, dimension=3)
+
+  pred = tf.argmax(logits, dimension=3)
 
   # get moving avg
   variable_averages = tf.train.ExponentialMovingAverage(
@@ -236,12 +234,13 @@ def test():
 
   with tf.Session() as sess:
     # Load checkpoint
-    saver.restore(sess, "tmp4/first350/TensorFlow/Logs/model.ckpt-" )
+    saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
+
     images, labels = get_all_test_data(image_filenames, label_filenames)
+
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
     for image_batch, label_batch  in zip(images, labels):
-      print(image_batch.shape, label_batch.shape)
       feed_dict = {
         test_data_node: image_batch,
         test_labels_node: label_batch,
@@ -249,6 +248,11 @@ def test():
       }
       dense_prediction = sess.run(logits, feed_dict=feed_dict)
       print(dense_prediction.shape)
+
+      # output_image to verify
+      if (FLAGS.save_image):
+          writeImage(im[0], 'testing_image.png')
+
       hist += model.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
@@ -279,11 +283,13 @@ def checkArgs():
 def main(args):
     checkArgs()
     if FLAGS.testing:
-        test(FLAGS)
+        test()
     elif FLAGS.finetune:
+        print("Finetuning the model!")
         train(is_finetune=True)
     else:
+        print("Training from scratch!")
         train(is_finetune=False)
 
 if __name__ == "__main__":
-    tf.app.run() # wrapper that handles flags parsing. Should it be added?
+    tf.app.run() # wrapper that handles flags parsing.
