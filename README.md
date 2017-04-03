@@ -10,8 +10,8 @@ The network is implemented by using the library TensorFlow.
 The network is based on the SegNet implementation by tkuanlan35: https://github.com/tkuanlun350/Tensorflow-SegNet.
 
 ## Requirements:
-Tensorflow GPU 1.0.1
-Python 3.5
+- Tensorflow GPU 1.0.1
+- Python 3.5
 
 See more in requirements.txt.
 

@@ -13,6 +13,7 @@ import Inputs
 
 FLAGS = tf.app.flags.FLAGS
 
+#tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
 tf.app.flags.DEFINE_string('testing', 'tmp/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                            """ checkpoint file """)
 tf.app.flags.DEFINE_string('finetune', '',
@@ -60,14 +61,19 @@ tf.app.flags.DEFINE_string('val_dir', "../SegNet/CamVid/val.txt",
 
 
 
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "367",
+                           """ num examples per epoch for train """)
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "101",
+                           """ num examples per epoch for test """)
+# tf.app.flags.DEFINE_integer('num_examples_epoch_eval', "1",
+#                            """ num examples per epoch for eval """)
+
 
 #FOR TESTING:
-NUM_EXAMPLES_PER_EPOCH_FOR_TEST = 101
-TEST_ITER = NUM_EXAMPLES_PER_EPOCH_FOR_TEST // FLAGS.batch_size
+TEST_ITER = FLAGS.num_examples_epoch_test // FLAGS.batch_size
 
 
-
-def train(is_finetune=False): #Now set to
+def train(is_finetune=False):
   """ Train model a number of steps """
 
   # should be changed if your model stored by different conventio
@@ -169,7 +175,7 @@ def train(is_finetune=False): #Now set to
 
           # eval current training batch pre-class accuracy
           pred = sess.run(logits, feed_dict=feed_dict)
-          model.per_class_acc(model.eval_batches(image_batch, sess, eval_prediction=pred), label_batch)
+          Utils.per_class_acc(pred, label_batch)
 
         if step % 100 == 0 or (step + 1) == FLAGS.max_steps:
           print("start testing.....")
@@ -184,14 +190,14 @@ def train(is_finetune=False): #Now set to
               phase_train: True
             })
             total_val_loss += _val_loss
-            hist += model.get_hist(_val_pred, val_labels_batch, FLAGS.batch_size)
+            hist += Utils.get_hist(_val_pred, val_labels_batch)
           print("val loss: ", total_val_loss / TEST_ITER)
           acc_total = np.diag(hist).sum() / hist.sum()
           iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
           test_summary_str = sess.run(average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
           acc_summary_str = sess.run(acc_summary, feed_dict={acc_pl: acc_total})
           iu_summary_str = sess.run(iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
-          model.print_hist_summery(hist)
+          Utils.print_hist_summery(hist)
           # per_class_acc(model.eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
 
           summary_str = sess.run(summary_op, feed_dict=feed_dict)
@@ -258,7 +264,7 @@ def test():
       if (FLAGS.save_image):
           Utils.writeImage(im[0], 'testing_image.png')
 
-      hist += model.get_hist(dense_prediction, label_batch, testing_batch_size)
+      hist += Utils.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
     print("acc: ", acc_total)

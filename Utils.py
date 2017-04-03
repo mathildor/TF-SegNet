@@ -2,6 +2,9 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 
+FLAGS = tf.app.flags.FLAGS
+
+
 def writeImage(image, filename):
     """ store label data to colored image """
     Sky = [128,128,128]
@@ -39,25 +42,21 @@ def fast_hist(a, b, n):
     k = (a >= 0) & (a < n)
     return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
 
-def get_hist_seq(predictions, labels, batch_size, seq_length, num_class):
-  predictions = np.transpose(predictions, [1,0,2,3,4])
-  hist = np.zeros((num_class, num_class))
-  for i in range(batch_size):
-    hist += fast_hist(labels[i].flatten(), predictions[i].argmax(3).flatten(), num_class)
-  return hist
 
 def get_hist(predictions, labels):
-  hist = np.zeros((NUM_CLASSES, NUM_CLASSES))
-  for i in range(BATCH_SIZE):
-    hist += fast_hist(labels[i].flatten(), predictions[i].argmax(2).flatten(), NUM_CLASSES)
+  num_class = predictions.shape[3]
+  batch_size = predictions.shape[0]
+  hist = np.zeros((num_class, num_class))
+  for i in range(batch_size):
+    hist += fast_hist(labels[i].flatten(), predictions[i].argmax(2).flatten(), num_class)
   return hist
 
-def print_hist_summery(hist, num_class):
+def print_hist_summery(hist):
   acc_total = np.diag(hist).sum() / hist.sum()
   print ('accuracy = %f'%np.nanmean(acc_total))
   iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
   print ('mean IU  = %f'%np.nanmean(iu))
-  for ii in range(num_class):
+  for ii in range(hist.shape[0]):
       if float(hist.sum(1)[ii]) == 0:
         acc = 0.0
       else:
@@ -66,7 +65,7 @@ def print_hist_summery(hist, num_class):
 
 def per_class_acc(predictions, label_tensor):
     labels = label_tensor
-    num_class = NUM_CLASSES
+    num_class = FLAGS.num_class
     size = predictions.shape[0]
     hist = np.zeros((num_class, num_class))
     for i in range(size):
@@ -82,41 +81,15 @@ def per_class_acc(predictions, label_tensor):
           acc = np.diag(hist)[ii] / float(hist.sum(1)[ii])
         print("    class # %d accuracy = %f "%(ii,acc))
 
-def eval_seq(pred, labels, batch_size, sequence_length, num_class):
-  #pred: [t, b, w, h, num_class] => [b,t,w,h,num_class]
-  pred = np.transpose(pred, [1,0,2,3,4])
-  hist = np.zeros((num_class, num_class))
-  for i in range(batch_size):
-    hist += fast_hist(labels[i].flatten(), pred[i].argmax(3).flatten(), num_class)
-  acc_total = np.diag(hist).sum() / hist.sum()
-  acc_no_zero = (np.diag(hist).sum() - hist[0][0]) / (hist.sum() - hist[0][0])
-  print ('accuracy = %f'%np.nanmean(acc_total))
-  print ('accuracy without0  = %f'%np.nanmean(acc_no_zero))
-  iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
-  print ('mean IU  = %f'%np.nanmean(iu))
-  for ii in range(num_class):
-      if float(hist.sum(1)[ii]) == 0:
-        acc = 0.0
-      else:
-        acc = np.diag(hist)[ii] / float(hist.sum(1)[ii])
-      print("    class # %d accuracy = %f "%(ii,acc))
-
-def eval_batches(data, sess, eval_prediction=None):
-    """Get all predictions for a dataset by running it in small batches."""
-    size = data.shape[0] # batch_size
-    predictions = np.ndarray(shape=(size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CLASSES), dtype=np.float32)
-    for begin in xrange(0, size, EVAL_BATCH_SIZE):
-      end = begin + EVAL_BATCH_SIZE
-      if end <= size:
-        predictions[begin:end, :] = eval_prediction
-      else:
-        batch_predictions = eval_prediction
-        predictions[begin:, :] = batch_predictions[begin - size:, :]
-    return predictions
-
-def count_freq(label_batch, batch_size):
-  hist = np.zeros(6)
-  for i in range(batch_size):
-    new_hist = np.bincount(label_batch[i].flatten(), minlength=6)
-    hist += new_hist
-  print(hist)
+# def eval_batches(data, sess, eval_prediction=None):
+#     """Get all predictions for a dataset by running it in small batches."""
+#     size = data.shape[0] # batch_size
+#     predictions = np.ndarray(shape=(size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CLASSES), dtype=np.float32)
+#     for begin in xrange(0, size, EVAL_BATCH_SIZE):
+#       end = begin + EVAL_BATCH_SIZE
+#       if end <= size:
+#         predictions[begin:end, :] = eval_prediction
+#       else:
+#         batch_predictions = eval_prediction
+#         predictions[begin:, :] = batch_predictions[begin - size:, :]
+#     return predictions
