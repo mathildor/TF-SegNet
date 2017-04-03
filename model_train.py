@@ -97,7 +97,7 @@ def train(is_finetune=False): #Now set to
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = model.inference(train_data_node, phase_train)
+    logits = model.inference(train_data_node, phase_train, FLAGS.batch_size)
 
     #Calculate loss:
     loss = model.cal_loss(logits, train_labels_node)
@@ -184,7 +184,7 @@ def train(is_finetune=False): #Now set to
               phase_train: True
             })
             total_val_loss += _val_loss
-            hist += model.get_hist(_val_pred, val_labels_batch)
+            hist += model.get_hist(_val_pred, val_labels_batch, FLAGS.batch_size)
           print("val loss: ", total_val_loss / TEST_ITER)
           acc_total = np.diag(hist).sum() / hist.sum()
           iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
@@ -211,19 +211,20 @@ def train(is_finetune=False): #Now set to
 def test():
   print("----------- !!!!!!!!!!in test method!!!!!!!!!!!!!! ----------")
 
+  testing_batch_size = 1
+
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.test_dir)
   test_data_node = tf.placeholder(
         tf.float32,
-        shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
-
+        shape=[testing_batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
   test_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.test_batch_size, FLAGS.image_h, FLAGS.image_w, 1])
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-  logits = model.inference(test_data_node, phase_train)
+  logits = model.inference(test_data_node, phase_train, testing_batch_size)
 
   #Calculate loss:
-  loss = model.cal_loss(logits, test_labels_node)
+  loss = model.cal_loss(logits, test_labels_node) #HER KRÆSJER!
 
   pred = tf.argmax(logits, dimension=3)
 
@@ -238,7 +239,7 @@ def test():
     # Load checkpoint
     saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
 
-    images, labels = get_all_test_data(image_filenames, label_filenames)
+    images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
 
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
@@ -248,14 +249,15 @@ def test():
         test_labels_node: label_batch,
         phase_train: False
       }
-      dense_prediction = sess.run(logits, feed_dict=feed_dict)
-      print(dense_prediction.shape)
+
+      dense_prediction, im = sess.run([logits, pred], feed_dict=feed_dict)
+      #print(dense_prediction.shape)
 
       # output_image to verify
       if (FLAGS.save_image):
-          writeImage(im[0], 'testing_image.png')
+          Utils.writeImage(im[0], 'testing_image.png')
 
-      hist += model.get_hist(dense_prediction, label_batch)
+      hist += model.get_hist(dense_prediction, label_batch, testing_batch_size)
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
     print("acc: ", acc_total)

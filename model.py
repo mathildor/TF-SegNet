@@ -99,7 +99,7 @@ hyperparameters = tf.get_collection('hyperparameters')
 """
 
 
-def inference(images, phase_train):
+def inference(images, phase_train, batch_size):
   """ Inference = slutning. It builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -123,7 +123,7 @@ def inference(images, phase_train):
     #shape is used to create kernel (kernel is the filter that will be convolved over the input)
     #shape = [patch_size_width, patch_size_heigh, input_channels, output_channels]
     #input_channels are three since the images has three channels => IMAGE_DEPTH=3
-  conv1 = conv_layer_with_bn(norm1, [7, 7, FLAGS.image_c, 64], phase_train, name="conv1")
+  conv1 = conv_layer_with_bn(norm1, [7, 7, images.get_shape().as_list()[3], 64], phase_train, name="conv1")
   # pool1
     #max_pool_with_argmax: Args: input tensor to pool over, ksize=window size for input tensor.
     #strides = [bach_size, image_rows, image_cols, number_of_colors].
@@ -155,25 +155,25 @@ def inference(images, phase_train):
   # upsample4
   # Need to change when using different dataset out_w, out_h
   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
-  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [FLAGS.batch_size, 45, 60, 64], 2, "up4")
+  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, 45, 60, 64], 2, "up4")
   # decode 4
   conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
 
   # upsample 3
   # upsample3 = upsample_with_pool_indices(conv_decode4, pool3_indices, conv_decode4.get_shape(), scale=2, name='upsample3')
-  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [FLAGS.batch_size, 90, 120, 64], 2, "up3")
+  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, 90, 120, 64], 2, "up3")
   # decode 3
   conv_decode3 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
 
   # upsample2
   # upsample2 = upsample_with_pool_indices(conv_decode3, pool2_indices, conv_decode3.get_shape(), scale=2, name='upsample2')
-  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [FLAGS.batch_size, 180, 240, 64], 2, "up2")
+  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, 180, 240, 64], 2, "up2")
   # decode 2
   conv_decode2 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
 
   # upsample1
   # upsample1 = upsample_with_pool_indices(conv_decode2, pool1_indices, conv_decode2.get_shape(), scale=2, name='upsample1')
-  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [FLAGS.batch_size, 360, 480, 64], 2, "up1")
+  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, 360, 480, 64], 2, "up1")
   # decode4
   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
@@ -562,9 +562,9 @@ def fast_hist(a, b, n):
   k = (a >= 0) & (a < n)
   return np.bincount(n * a[k].astype(int) + b[k], minlength=n**2).reshape(n, n)
 
-def get_hist(predictions, labels):
+def get_hist(predictions, labels, batch_size):
   hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
-  for i in range(FLAGS.batch_size):
+  for i in range(batch_size):
     hist += fast_hist(labels[i].flatten(), predictions[i].argmax(2).flatten(), FLAGS.num_class)
   return hist
 
