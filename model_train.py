@@ -209,7 +209,7 @@ def train(is_finetune=False): #Now set to
 
 
 def test():
-  print("----------- !!!!!!!!!!in test method!!!!!!!!!!!!!! ----------")
+  print("----------- In test method ----------")
 
   testing_batch_size = 1
 
@@ -240,7 +240,8 @@ def test():
     saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
 
     images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
-
+    print('images:')
+    print(image_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
     for image_batch, label_batch  in zip(images, labels):
