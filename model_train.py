@@ -108,14 +108,12 @@ def train(is_finetune=False):
     #Calculate loss:
     loss = model.cal_loss(logits, train_labels_node)
 
-
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
     train_op = model.train(loss, global_step)
 
     # The op for initializing the variables.
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer() )
-
 
     # Create a saver.
     saver = tf.train.Saver(tf.global_variables())
@@ -228,9 +226,8 @@ def test():
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
   logits = model.inference(test_data_node, phase_train, testing_batch_size)
-
   #Calculate loss:
-  loss = model.cal_loss(logits, test_labels_node) #HER KRÆSJER!
+  loss = model.cal_loss(logits, test_labels_node)
 
   pred = tf.argmax(logits, dimension=3)
 
@@ -246,8 +243,8 @@ def test():
     saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
 
     images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
-    print('images:')
-    print(image_filenames)
+    # print('images:')
+    #print(image_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
     for image_batch, label_batch  in zip(images, labels):
@@ -258,6 +255,7 @@ def test():
       }
 
       dense_prediction, im = sess.run([logits, pred], feed_dict=feed_dict)
+      # print('pred is: %s' %im[0])
       #print(dense_prediction.shape)
 
       # output_image to verify

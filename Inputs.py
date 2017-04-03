@@ -19,7 +19,7 @@ FLAGS = tf.app.flags.FLAGS
 #   image_filenames = []
 #   label_filenames = []
 #   filenames = []
-#   for i in range (0, len(sorted_filenames), 2):
+#   for i in range (0, len(sorted_filenames), 2): #iterate two at a time
 #     image_filenames.append(sorted_filenames[i])
 #     label_filenames.append(sorted_filenames[i+1])
 #   return image_filenames, label_filenames
@@ -114,42 +114,6 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   tf.summary.image('images', images)
 
   return images, label_batch
-
-
-def CamVid_reader_seq(filename_queue, seq_length):
-  image_seq_filenames = tf.split(0, seq_length, filename_queue[0])
-  label_seq_filenames = tf.split(0, seq_length, filename_queue[1])
-
-  image_seq = []
-  label_seq = []
-  for im ,la in zip(image_seq_filenames, label_seq_filenames):
-    imageValue = tf.read_file(tf.squeeze(im))
-    labelValue = tf.read_file(tf.squeeze(la))
-    image_bytes = tf.image.decode_png(imageValue)
-    label_bytes = tf.image.decode_png(labelValue)
-    image = tf.cast(tf.reshape(image_bytes, (FLAGS.image_h, FLAGS.image_w, FLAGS.image_c)), tf.float32)
-    label = tf.cast(tf.reshape(label_bytes, (FLAGS.image_h, FLAGS.image_w, 1)), tf.int64)
-    image_seq.append(image)
-    label_seq.append(label)
-  return image_seq, label_seq
-
-
-def CamVidInputs_seq(image_filenames, label_filenames, batch_size, seq_length):
-  images = ops.convert_to_tensor(image_filenames, dtype=dtypes.string)
-  labels = ops.convert_to_tensor(label_filenames, dtype=dtypes.string)
-  print("seq im, la filenames", images.get_shape(), labels.get_shape())
-  filename_queue = tf.train.slice_input_producer([images, labels], shuffle=True)
-  image_seq, label_seq = CamVid_reader_seq(filename_queue, seq_length)
-  min_fraction_of_examples_in_queue = 0.4
-  min_queue_examples = int(73 *
-                           min_fraction_of_examples_in_queue)
-  print ('Filling queue with %d CamVid seq_images before starting to train. '
-         'This will take a few minutes.' % min_queue_examples)
-
-  # Generate a batch of images and labels by building up a queue of examples.
-  return _generate_image_and_label_batch(image_seq, label_seq,
-                                         min_queue_examples, batch_size,
-                                         shuffle=True)
 
 def get_all_test_data(im_list, la_list):
   images = []

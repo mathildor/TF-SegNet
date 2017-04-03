@@ -188,8 +188,7 @@ def inference(images, phase_train, batch_size):
     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
-  #logit = conv_classifier
-
+  #logit = conv_classifier = prediction
   return conv_classifier
 
 

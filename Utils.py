@@ -7,20 +7,28 @@ FLAGS = tf.app.flags.FLAGS
 
 def writeImage(image, filename):
     """ store label data to colored image """
-    Sky = [128,128,128]
-    Building = [128,0,0]
-    Pole = [192,192,128]
-    Road_marking = [255,69,0]
-    Road = [128,64,128]
-    Pavement = [60,40,222]
+    Sky = [128,128,128] #sky
+    Building = [128,0,0] #dark red
+    Pole = [192,192,128] #light yellow
+    Road_marking = [255,69,0] #bright orange
+    Road = [128,64,128] #purple
+    Pavement = [60,40,222]#bright blue
     r = image.copy()
     g = image.copy()
     b = image.copy()
+    print (r[0])
+    testImg=[[1, 1, 1], [2, 2, 2]]
     label_colours = np.array([Sky, Building, Pole, Road, Road_marking, Pavement])
-    for l in range(0,6):
-        r[image==l] = label_colours[l,0]
-        g[image==l] = label_colours[l,1]
-        b[image==l] = label_colours[l,2]
+    for label in range(0,6): #for all labels - shouldn't this be set according to num_class
+        #Replacing all instances in matrix with label value with the label colour
+        r[image==label] = label_colours[label,0] #red is channel/debth 0
+        print('AFTER------r')
+        print (r[0])
+        #testImg[image==label] = label_colours[label,0] #red is channel/debth 0
+        print(testImg)
+        sys.out
+        g[image==label] = label_colours[label,1] #green is channel/debth 1
+        b[image==label] = label_colours[label,2] #blue is channel/debth 2
     rgb = np.zeros((image.shape[0], image.shape[1], 3))
     rgb[:,:,0] = r/1.0
     rgb[:,:,1] = g/1.0
