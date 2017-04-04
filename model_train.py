@@ -179,7 +179,7 @@ def train(is_finetune=False):
           print("start testing.....")
           total_val_loss = 0.0
           hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
-          for test_step in range(TEST_ITER): #TEST_ITER is a number
+          for test_step in range(TEST_ITER):
             val_images_batch, val_labels_batch = sess.run([val_images, val_labels])
 
             _val_loss, _val_pred = sess.run([loss, logits], feed_dict={
@@ -243,8 +243,6 @@ def test():
     saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
 
     images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
-    # print('images:')
-    #print(image_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
     for image_batch, label_batch  in zip(images, labels):
@@ -255,8 +253,6 @@ def test():
       }
 
       dense_prediction, im = sess.run([logits, pred], feed_dict=feed_dict)
-      # print('pred is: %s' %im[0])
-      #print(dense_prediction.shape)
 
       # output_image to verify
       if (FLAGS.save_image):
