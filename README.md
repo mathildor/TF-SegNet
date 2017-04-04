@@ -17,3 +17,5 @@ See more in requirements.txt.
 
 ## Usage
 pip install -r requirements.txt
+
+Download the CamVid dataset from: https://github.com/alexgkendall/SegNet-Tutorial, and set correct paths in model_train.py.
