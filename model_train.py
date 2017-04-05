@@ -13,8 +13,8 @@ import Inputs
 
 FLAGS = tf.app.flags.FLAGS
 
-#tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
-tf.app.flags.DEFINE_string('testing', 'tmp/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+#tf.app.flags.DEFINE_string('testing', 'tmp/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                            """ checkpoint file """)
 tf.app.flags.DEFINE_string('finetune', '',
                            """ finetune checkpoint file """)
@@ -22,11 +22,11 @@ tf.app.flags.DEFINE_boolean('save_image', True,
                             """ whether to save predicted image """)
 
 
-tf.app.flags.DEFINE_integer('batch_size', "5",
+tf.app.flags.DEFINE_integer('batch_size', "1",#5
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "5",
+tf.app.flags.DEFINE_integer('eval_batch_size', "1", #5
                             """ Eval batch_size """)
 
 
@@ -38,13 +38,13 @@ tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
 
 tf.app.flags.DEFINE_integer('max_steps', "20000",
                             """ max_steps """)
-tf.app.flags.DEFINE_integer('num_class', "11",
+tf.app.flags.DEFINE_integer('num_class', "2",
                             """ total class number """)
 
 """ Image size """
-tf.app.flags.DEFINE_integer('image_h', "360",
+tf.app.flags.DEFINE_integer('image_h', "512",
                             """ image height """)
-tf.app.flags.DEFINE_integer('image_w', "480",
+tf.app.flags.DEFINE_integer('image_w', "512",
                             """ image width """)
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
@@ -52,12 +52,12 @@ tf.app.flags.DEFINE_integer('image_c', "3",
 """ Directories  """
 tf.app.flags.DEFINE_string('log_dir', "tmp1/logs",
                            """ dir to store ckpt """)
-tf.app.flags.DEFINE_string('image_dir', "../SegNet/CamVid/train.txt",
-                           """ path to CamVid image """)
-tf.app.flags.DEFINE_string('test_dir', "../SegNet/CamVid/test.txt",
-                           """ path to CamVid test image """)
-tf.app.flags.DEFINE_string('val_dir', "../SegNet/CamVid/val.txt",
-                           """ path to CamVid val image """)
+tf.app.flags.DEFINE_string('image_dir', "../aerial_img/jpg/train_images",
+                           """ path to image """)
+tf.app.flags.DEFINE_string('test_dir', "../aerial_img/jpg/test_images",
+                           """ path to test image """)
+tf.app.flags.DEFINE_string('val_dir', "../aerial_img/jpg/val_images",
+                           """ path to val image """)
 
 
 
@@ -86,9 +86,9 @@ def train(is_finetune=False):
 
     train_data_node = tf.placeholder(
           tf.float32,
-          shape=[FLAGS.batch_size, 360, 480, 3])
+          shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 3])
 
-    train_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.batch_size, 360, 480, 1])
+    train_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.batch_size, FLAGS.image_w, FLAGS.image_h, 1])
 
     phase_train = tf.placeholder(tf.bool, name='phase_train')
 

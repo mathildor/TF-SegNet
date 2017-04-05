@@ -10,35 +10,32 @@ import skimage.io
 
 FLAGS = tf.app.flags.FLAGS
 
+def get_filename_list(path):
+
+  image_filenames = sorted(os.listdir(path+'/images')) #sort by names to get img and label after each other
+  label_filenames = sorted(os.listdir(path+'/labels')) #sort by names to get img and label after each other
+
+  return image_filenames, label_filenames
+
 # def get_filename_list(path):
-#   #fd = open(path)
-#
-#   fileNames = os.listdir(path)
-#   sorted_filenames = sorted(fileNames) #sort by names to get img and label after each other
-#
+#   fd = open(path)
 #   image_filenames = []
 #   label_filenames = []
 #   filenames = []
-#   for i in range (0, len(sorted_filenames), 2): #iterate two at a time
-#     image_filenames.append(sorted_filenames[i])
-#     label_filenames.append(sorted_filenames[i+1])
+#   for i in fd:
+#     i = i.strip().split(" ")
+#     image_filenames.append(i[0])
+#     label_filenames.append(i[1])
 #   return image_filenames, label_filenames
-
-def get_filename_list(path):
-  fd = open(path)
-  image_filenames = []
-  label_filenames = []
-  filenames = []
-  for i in fd:
-    i = i.strip().split(" ")
-    image_filenames.append(i[0])
-    label_filenames.append(i[1])
-  return image_filenames, label_filenames
 
 def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: camVidInputs
 
   images = ops.convert_to_tensor(image_filenames, dtype=dtypes.string)
   labels = ops.convert_to_tensor(label_filenames, dtype=dtypes.string)
+
+  print('images')
+  print(images)
+  print(labels)
 
   filename_queue = tf.train.slice_input_producer([images, labels], shuffle=True)
 
@@ -68,8 +65,8 @@ def dataset_reader(filename_queue): #prev name: CamVid_reader
 
  #decodes a png image into a uint8 or uint16 tensor
  #returns a tensor of type dtype with shape [height, width, depth]
- image_bytes = tf.image.decode_png(imageValue)
- label_bytes = tf.image.decode_png(labelValue)
+ image_bytes = tf.image.decode_jpeg(imageValue)
+ label_bytes = tf.image.decode_jpeg(labelValue)
 
  image = tf.reshape(image_bytes, (FLAGS.image_h, FLAGS.image_w, FLAGS.image_c))
  label = tf.reshape(label_bytes, (FLAGS.image_h, FLAGS.image_w, 1))
