@@ -13,20 +13,49 @@ import Inputs
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
-#tf.app.flags.DEFINE_string('testing', 'tmp/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+"""DATASET SPECIFIC PARAMETERS"""
+#tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+tf.app.flags.DEFINE_string('testing', 'tmp2/logs/model.ckpt-9000', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                            """ checkpoint file """)
+
+""" Image size """
+tf.app.flags.DEFINE_integer('image_h', "512",
+                            """ image height """)
+tf.app.flags.DEFINE_integer('image_w', "512",
+                            """ image width """)
+tf.app.flags.DEFINE_integer('image_c', "3",
+                            """ number image channels (RGB) (the depth) """)
+
+""" Directories  """
+tf.app.flags.DEFINE_string('log_dir', "tmp2/logs",
+                           """ dir to store ckpt """)
+tf.app.flags.DEFINE_string('image_dir', "../aerial_img/jpg/train_images",
+                           """ path to image """)
+tf.app.flags.DEFINE_string('test_dir', "../aerial_img/jpg/test_images",
+                           """ path to test image """)
+tf.app.flags.DEFINE_string('val_dir', "../aerial_img/jpg/val_images",
+                           """ path to val image """)
+
+"""Dataset size"""
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "88",
+                           """ num examples per epoch for train """)
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "24",
+                           """ num examples per epoch for test """)
+
+
+
+""" AFFECTS HOW CODE RUNS"""
 tf.app.flags.DEFINE_string('finetune', '',
                            """ finetune checkpoint file """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ whether to save predicted image """)
 
-
-tf.app.flags.DEFINE_integer('batch_size', "1",#5
+""" AFFECTS TRAINING"""
+tf.app.flags.DEFINE_integer('batch_size', "5",#5
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "1", #5
+tf.app.flags.DEFINE_integer('eval_batch_size', "5", #5
                             """ Eval batch_size """)
 
 
@@ -38,35 +67,9 @@ tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
 
 tf.app.flags.DEFINE_integer('max_steps', "20000",
                             """ max_steps """)
-tf.app.flags.DEFINE_integer('num_class', "2",
+tf.app.flags.DEFINE_integer('num_class', "2", #building or not building
                             """ total class number """)
 
-""" Image size """
-tf.app.flags.DEFINE_integer('image_h', "512",
-                            """ image height """)
-tf.app.flags.DEFINE_integer('image_w', "512",
-                            """ image width """)
-tf.app.flags.DEFINE_integer('image_c', "3",
-                            """ number image channels (RGB) (the depth) """)
-
-""" Directories  """
-tf.app.flags.DEFINE_string('log_dir', "tmp1/logs",
-                           """ dir to store ckpt """)
-tf.app.flags.DEFINE_string('image_dir', "../aerial_img/jpg/train_images",
-                           """ path to image """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_img/jpg/test_images",
-                           """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_img/jpg/val_images",
-                           """ path to val image """)
-
-
-
-tf.app.flags.DEFINE_integer('num_examples_epoch_train', "367",
-                           """ num examples per epoch for train """)
-tf.app.flags.DEFINE_integer('num_examples_epoch_test', "101",
-                           """ num examples per epoch for test """)
-# tf.app.flags.DEFINE_integer('num_examples_epoch_eval', "1",
-#                            """ num examples per epoch for eval """)
 
 
 #FOR TESTING:
@@ -76,44 +79,34 @@ TEST_ITER = FLAGS.num_examples_epoch_test // FLAGS.batch_size
 def train(is_finetune=False):
   """ Train model a number of steps """
 
-  # should be changed if your model stored by different conventio
+  # should be changed if your model is stored by different convention
   startstep = 0 if not is_finetune else int(FLAGS.finetune.split('-')[-1])
-
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.image_dir)
   val_image_filenames, val_label_filenames = Inputs.get_filename_list(FLAGS.val_dir)
 
   with tf.Graph().as_default():
 
-    train_data_node = tf.placeholder(
-          tf.float32,
-          shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 3])
+    global_step = tf.Variable(0, trainable=False)
 
-    train_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.batch_size, FLAGS.image_w, FLAGS.image_h, 1])
+    #Make images into correct type(float32/float16 el.), create shuffeled batches ++
+    images, labels = Inputs.datasetInputs(image_filenames, label_filenames, FLAGS.batch_size)
+    val_images, val_labels = Inputs.datasetInputs(val_image_filenames, val_label_filenames, FLAGS.batch_size)
+
+    train_data_node = tf.placeholder(tf.float32, shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 3])
+    train_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 1])
 
     phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-    global_step = tf.Variable(0, trainable=False)
-
-    # For CamVid
-      #Make images into correct type(float32/float16 el.), create shuffeled batches ++
-    images, labels = Inputs.datasetInputs(image_filenames, label_filenames, FLAGS.batch_size) #prev name for datasetInputs = CamVidInputs
-
-    val_images, val_labels = Inputs.datasetInputs(val_image_filenames, val_label_filenames, FLAGS.batch_size)
-
-
-    # Build a Graph that computes the logits predictions from the
-    # inference model.
-    logits = model.inference(train_data_node, phase_train, FLAGS.batch_size)
+    # Build a Graph that computes the logits predictions from the inference model.
+    logits = model.inference(train_data_node, phase_train, FLAGS.batch_size) #tensor, nothing calculated yet
 
     #Calculate loss:
+    # loss = model.loss(logits, train_labels_node)
     loss = model.cal_loss(logits, train_labels_node)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
     train_op = model.train(loss, global_step)
-
-    # The op for initializing the variables.
-    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer() )
 
     # Create a saver.
     saver = tf.train.Saver(tf.global_variables())
@@ -121,17 +114,16 @@ def train(is_finetune=False):
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.summary.merge_all()
 
+    #Using a context manager - it will release resources for session when no longer required.
+    #Defining session like this means you do not have to explicitly close the session.
     with tf.Session() as sess:
-      # Build an initialization operation to run below.
       if (is_finetune == True):
           saver.restore(sess, FLAGS.testing ) #FLAGS.testing is ckpt
       else:
-          init = tf.global_variables_initializer()
-          sess.run(init)
+          sess.run(tf.global_variables_initializer())
+          sess.run(tf.local_variables_initializer())
 
-      # Start running operations on the Graph.
-      sess.run(init)
-
+      print("Started session run")
       # Start the queue runners.
       coord = tf.train.Coordinator()
       threads = tf.train.start_queue_runners(sess=sess, coord=coord)
@@ -146,7 +138,7 @@ def train(is_finetune=False):
 
       """ Starting iterations to train the network """
       for step in range(startstep, startstep + FLAGS.max_steps):
-        image_batch ,label_batch = sess.run([images, labels])
+        image_batch ,label_batch = sess.run(fetches=[images, labels])
         # since we still use mini-batches in eval, still set bn-layer phase_train = True
         feed_dict = {
           train_data_node: image_batch,
@@ -156,10 +148,9 @@ def train(is_finetune=False):
         # storeImageQueue(image_batch, label_batch, step)
         start_time = time.time()
 
-        _, loss_value = sess.run([train_op, loss], feed_dict=feed_dict)
+        _, loss_value = sess.run(fetches=[train_op, loss], feed_dict=feed_dict)
         duration = time.time() - start_time
-
-        assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+        assert not np.isnan(loss_value), 'Model diverged with loss = NaN - weights have "exploded"'
 
         if step % 10 == 0:
           num_examples_per_step = FLAGS.batch_size
@@ -172,7 +163,7 @@ def train(is_finetune=False):
                                examples_per_sec, sec_per_batch))
 
           # eval current training batch pre-class accuracy
-          pred = sess.run(logits, feed_dict=feed_dict)
+          pred = sess.run(fetches=logits, feed_dict=feed_dict)
           Utils.per_class_acc(pred, label_batch)
 
         if step % 100 == 0 or (step + 1) == FLAGS.max_steps:
@@ -180,25 +171,25 @@ def train(is_finetune=False):
           total_val_loss = 0.0
           hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
           for test_step in range(TEST_ITER):
-            val_images_batch, val_labels_batch = sess.run([val_images, val_labels])
-
-            _val_loss, _val_pred = sess.run([loss, logits], feed_dict={
+            val_images_batch, val_labels_batch = sess.run(fetches=[val_images, val_labels])
+            feed_dict = {
               train_data_node: val_images_batch,
               train_labels_node: val_labels_batch,
               phase_train: True
-            })
+            }
+            _val_loss, _val_pred = sess.run(fetches=[loss, logits], feed_dict=feed_dict)
             total_val_loss += _val_loss
             hist += Utils.get_hist(_val_pred, val_labels_batch)
           print("val loss: ", total_val_loss / TEST_ITER)
           acc_total = np.diag(hist).sum() / hist.sum()
           iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
-          test_summary_str = sess.run(average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
-          acc_summary_str = sess.run(acc_summary, feed_dict={acc_pl: acc_total})
-          iu_summary_str = sess.run(iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
+          test_summary_str = sess.run(fetches=average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
+          acc_summary_str = sess.run(fetches=acc_summary, feed_dict={acc_pl: acc_total})
+          iu_summary_str = sess.run(fetches=iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
           Utils.print_hist_summery(hist)
           # per_class_acc(model.eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
 
-          summary_str = sess.run(summary_op, feed_dict=feed_dict)
+          summary_str = sess.run(fetches=summary_op, feed_dict=feed_dict)
           summary_writer.add_summary(summary_str, step)
           summary_writer.add_summary(test_summary_str, step)
           summary_writer.add_summary(acc_summary_str, step)
@@ -218,15 +209,13 @@ def test():
   testing_batch_size = 1
 
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.test_dir)
-  test_data_node = tf.placeholder(
-        tf.float32,
-        shape=[testing_batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
+  test_data_node = tf.placeholder(tf.float32, shape=[testing_batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
   test_labels_node = tf.placeholder(tf.int64, shape=[FLAGS.test_batch_size, FLAGS.image_h, FLAGS.image_w, 1])
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
   logits = model.inference(test_data_node, phase_train, testing_batch_size)
-  #Calculate loss:
+
   loss = model.cal_loss(logits, test_labels_node)
 
   pred = tf.argmax(logits, dimension=3)
@@ -240,24 +229,26 @@ def test():
 
   with tf.Session() as sess:
     # Load checkpoint
-    saver.restore(sess, FLAGS.testing) #originally said: "tmp4/first350/TensorFlow/Logs/model.ckpt-"
+    saver.restore(sess, FLAGS.testing)
 
     images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
     hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
+    step=0
     for image_batch, label_batch  in zip(images, labels):
-      feed_dict = {
+      feed_dict = { #maps graph elements to values
         test_data_node: image_batch,
         test_labels_node: label_batch,
         phase_train: False
       }
 
-      dense_prediction, im = sess.run([logits, pred], feed_dict=feed_dict)
-
+      dense_prediction, im = sess.run(fetches=[logits, pred], feed_dict=feed_dict)
+      # print('dense_prediction')
+      # print(dense_prediction.eval())
       # output_image to verify
       if (FLAGS.save_image):
-          Utils.writeImage(im[0], 'testing_image.png')
-
+          Utils.writeImage(im[0], 'testing_image'+str(step)+'.jpeg')
+      step=step+1
       hist += Utils.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))

@@ -108,7 +108,7 @@ def inference(images, phase_train, batch_size):
       are of different types. Block one for example has two conv-batch-relu layer and one pooling layer.
 
       Args:
-        images: Images Tensors
+        images: Images Tensors (placeholder with correct shape, img_h, img_w, img_d)
         phase_train:
 
       Returns:
@@ -155,25 +155,29 @@ def inference(images, phase_train, batch_size):
   # upsample4
   # Need to change when using different dataset out_w, out_h
   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
-  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, 45, 60, 64], 2, "up4")
+
+
+  #During downsampling the size is halfed each layer, here it is the opposite. Therefor dimension is divided by 8 - 4 - 2 - 1
+
+  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
   # decode 4
   conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
 
   # upsample 3
   # upsample3 = upsample_with_pool_indices(conv_decode4, pool3_indices, conv_decode4.get_shape(), scale=2, name='upsample3')
-  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, 90, 120, 64], 2, "up3")
+  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
   # decode 3
   conv_decode3 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
 
   # upsample2
   # upsample2 = upsample_with_pool_indices(conv_decode3, pool2_indices, conv_decode3.get_shape(), scale=2, name='upsample2')
-  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, 180, 240, 64], 2, "up2")
+  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
   # decode 2
   conv_decode2 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
 
   # upsample1
   # upsample1 = upsample_with_pool_indices(conv_decode2, pool1_indices, conv_decode2.get_shape(), scale=2, name='upsample1')
-  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, 360, 480, 64], 2, "up1")
+  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
   # decode4
   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
@@ -188,7 +192,7 @@ def inference(images, phase_train, batch_size):
     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
-  #logit = conv_classifier = prediction
+    #logit = conv_classifier = prediction
   return conv_classifier
 
 
@@ -199,7 +203,12 @@ def loss(logits, labels):
   Adds to the inference graph the ops required to generate loss.
   Here the one-hot-encoding is done.
 
-      loss func without re-weighting
+  loss func without re-weighting.
+
+  Args:
+    logits: logits from inference function
+    labels: placeholder
+
   """
   # Calculate the average cross entropy loss across the batch.
   logits = tf.reshape(logits, (-1, FLAGS.num_class))
@@ -207,13 +216,16 @@ def loss(logits, labels):
 
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits( #one-hot-encoding
       labels=labels, logits=logits, name='cross_entropy_per_example')
+
   #reduce mean -> average the cross entropy accross the batch dimension
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean)
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).
-  return tf.add_n(tf.get_collection('losses'), name='total_loss')
+  loss=tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+  return loss
 
 def weighted_loss(logits, labels, num_classes, head=None): #None is default value (if no other is given)
   """Calculate the loss from the logits and the labels.
@@ -245,6 +257,7 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
       softmax = tf.nn.softmax(logits)
 
       cross_entropy = -tf.reduce_sum(tf.multiply(labels * tf.log(softmax + epsilon), head), reduction_indices=[1])
+      # cross_entropy = -tf.reduce_sum(labels * tf.log(softmax + epsilon), reduction_indices=[1])
 
       cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
@@ -256,19 +269,11 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
 
 def cal_loss(logits, labels):
   """ Assigning loss_weight and using weighted loss because of unbalanced dataset """
+  #Using median frequency balancing
   loss_weight = np.array([
-    0.2595,
-    0.1826,
-    4.5640,
-    0.1417,
-    0.9051,
-    0.3826,
-    9.6446,
-    1.8418,
-    0.6823,
-    6.2478,
-    7.3614,
-  ]) # class 0~10
+    0.1826, #
+    9.2595, #Building - makes it more important when given higher value
+  ]) # class 0~1
 
   labels = tf.cast(labels, tf.int32)
 
@@ -293,11 +298,6 @@ def train(total_loss, global_step):
       train_op: op for training.
 
   """
-
-  #total_sample = 274
-
-  #Variables that affect learning rate.
-  num_batches_per_epoch = 274/1
 
   """ fixed learning rate """
   lr = FLAGS.learning_rate #Setting constant learning rate as it is most common with adam optimizer.

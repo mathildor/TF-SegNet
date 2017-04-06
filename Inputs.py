@@ -15,6 +15,16 @@ def get_filename_list(path):
   image_filenames = sorted(os.listdir(path+'/images')) #sort by names to get img and label after each other
   label_filenames = sorted(os.listdir(path+'/labels')) #sort by names to get img and label after each other
 
+  #Adding correct path to the each filename in the lists
+  step=0
+  for name in image_filenames:
+    image_filenames[step] = path+"/images/"+name
+    step=step+1
+  step=0
+  for name in label_filenames:
+    label_filenames[step] = path+"/labels/"+name
+    step=step+1
+
   return image_filenames, label_filenames
 
 # def get_filename_list(path):
@@ -28,14 +38,32 @@ def get_filename_list(path):
 #     label_filenames.append(i[1])
 #   return image_filenames, label_filenames
 
+
+def dataset_reader(filename_queue): #prev name: CamVid_reader
+
+ image_filename = filename_queue[0] #tensor of type string
+ label_filename = filename_queue[1] #tensor of type string
+
+ #get jpeg encoded image
+ imageValue = tf.read_file(image_filename)
+ labelValue = tf.read_file(label_filename)
+
+ #decodes a jpeg image into a uint8 or uint16 tensor
+ #returns a tensor of type dtype with shape [height, width, depth]
+ image_bytes = tf.image.decode_jpeg(imageValue)
+ label_bytes = tf.image.decode_jpeg(labelValue)
+
+ image = tf.reshape(image_bytes, (FLAGS.image_h, FLAGS.image_w, FLAGS.image_c))
+ label = tf.reshape(label_bytes, (FLAGS.image_h, FLAGS.image_w, 1))
+
+ return image, label
+
 def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: camVidInputs
 
+  # print(image_filenames)
+  # print(label_filenames)
   images = ops.convert_to_tensor(image_filenames, dtype=dtypes.string)
   labels = ops.convert_to_tensor(label_filenames, dtype=dtypes.string)
-
-  print('images')
-  print(images)
-  print(labels)
 
   filename_queue = tf.train.slice_input_producer([images, labels], shuffle=True)
 
@@ -52,27 +80,6 @@ def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: cam
   return _generate_image_and_label_batch(reshaped_image, label,
                                          min_queue_examples, batch_size,
                                          shuffle=True)
-
-
-def dataset_reader(filename_queue): #prev name: CamVid_reader
-
- image_filename = filename_queue[0] #tensor of type string
- label_filename = filename_queue[1] #tensor of type string
-
- #get png encoded image
- imageValue = tf.read_file(image_filename)
- labelValue = tf.read_file(label_filename)
-
- #decodes a png image into a uint8 or uint16 tensor
- #returns a tensor of type dtype with shape [height, width, depth]
- image_bytes = tf.image.decode_jpeg(imageValue)
- label_bytes = tf.image.decode_jpeg(labelValue)
-
- image = tf.reshape(image_bytes, (FLAGS.image_h, FLAGS.image_w, FLAGS.image_c))
- label = tf.reshape(label_bytes, (FLAGS.image_h, FLAGS.image_w, 1))
-
- return image, label
-
 
 def _generate_image_and_label_batch(image, label, min_queue_examples,
                                     batch_size, shuffle):
