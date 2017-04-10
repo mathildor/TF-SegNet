@@ -1,4 +1,5 @@
 
+
 import tensorflow as tf
 import time
 from datetime import datetime
@@ -13,12 +14,29 @@ import Inputs
 
 FLAGS = tf.app.flags.FLAGS
 
-"""DATASET SPECIFIC PARAMETERS"""
-#tf.app.flags.DEFINE_string('testing', '', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
-tf.app.flags.DEFINE_string('testing', 'tmp2/logs/model.ckpt-19999', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
-                           """ checkpoint file """)
+""" AFFECTS HOW CODE RUNS"""
 
-""" Image size """
+#Training
+tf.app.flags.DEFINE_string('log_dir', "tmp/large_dataset_lessWeightDiff_png/logs",
+                           """ dir to store training ckpt """)
+
+#Testing
+tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+                            """ Whether to run test or not """)
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/large_dataset_lessWeightDiff_png/logs/model.ckpt-4000', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+                           """ checkpoint file for model to use for testing """)
+tf.app.flags.DEFINE_boolean('save_image', True,
+                            """ Whether to save predicted image """)
+
+#Finetuning
+tf.app.flags.DEFINE_boolean('finetune', True,
+                           """ Whether to finetune or not """)
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/large_dataset_lessWeightDiff_png/logs/model.ckpt-4999',
+                           """ Path to the checkpoint file to finetune from """)
+
+
+"""DATASET SPECIFIC PARAMETERS"""
+#Image size
 tf.app.flags.DEFINE_integer('image_h', "512",
                             """ image height """)
 tf.app.flags.DEFINE_integer('image_w', "512",
@@ -26,36 +44,27 @@ tf.app.flags.DEFINE_integer('image_w', "512",
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
-""" Directories  """
-tf.app.flags.DEFINE_string('log_dir', "tmp2/logs",
-                           """ dir to store ckpt """)
-tf.app.flags.DEFINE_string('image_dir', "../aerial_img/jpg/train_images",
+#Directories
+tf.app.flags.DEFINE_string('image_dir', "../aerial_img_1400/train_images/png",
                            """ path to image """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_img/jpg/test_images",
+tf.app.flags.DEFINE_string('test_dir', "../aerial_img_1400/test_images/png",
                            """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_img/jpg/val_images",
+tf.app.flags.DEFINE_string('val_dir', "../aerial_img_1400/val_images/png",
                            """ path to val image """)
 
-"""Dataset size"""
-tf.app.flags.DEFINE_integer('num_examples_epoch_train', "88",
+#Dataset size. #Epoch = one pass of the whole dataset.
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "1000",
                            """ num examples per epoch for train """)
-tf.app.flags.DEFINE_integer('num_examples_epoch_test', "24",
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "200",
                            """ num examples per epoch for test """)
 
 
-
-""" AFFECTS HOW CODE RUNS"""
-tf.app.flags.DEFINE_string('finetune', '',
-                           """ finetune checkpoint file """)
-tf.app.flags.DEFINE_boolean('save_image', True,
-                            """ whether to save predicted image """)
-
-""" AFFECTS TRAINING"""
-tf.app.flags.DEFINE_integer('batch_size', "5",#5
+""" TRAINING PARAMETERS"""
+tf.app.flags.DEFINE_integer('batch_size', "5",
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "5", #5
+tf.app.flags.DEFINE_integer('eval_batch_size', "2",
                             """ Eval batch_size """)
 
 
@@ -65,26 +74,29 @@ tf.app.flags.DEFINE_float('learning_rate', "1e-3", #Figure out what is best for 
 tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
                            """ The decay to use for the moving average""")
 
-tf.app.flags.DEFINE_integer('max_steps', "20000",
+tf.app.flags.DEFINE_integer('max_steps', "5000",
                             """ max_steps """)
-tf.app.flags.DEFINE_integer('num_class', "2", #building or not building
+tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
                             """ total class number """)
 
 
 
 #FOR TESTING:
 TEST_ITER = FLAGS.num_examples_epoch_test // FLAGS.batch_size
-
+PREV_VAL_LOSS = 0 #Used to print loss for previous validation batch to look for overfitting
 
 def train(is_finetune=False):
   """ Train model a number of steps """
 
-  # should be changed if your model is stored by different convention
-  startstep = 0 if not is_finetune else int(FLAGS.finetune.split('-')[-1])
+
+  # should be changed if model is stored by different convention
+  startstep = 0 if not is_finetune else int(FLAGS.finetune_dir.split('-')[-1])
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.image_dir)
   val_image_filenames, val_label_filenames = Inputs.get_filename_list(FLAGS.val_dir)
 
   with tf.Graph().as_default():
+    #Probablitity that the neuron's output will be kept during dropout
+    keep_probability = tf.placeholder(tf.float32, name="keep_probabilty")
 
     global_step = tf.Variable(0, trainable=False)
 
@@ -98,19 +110,13 @@ def train(is_finetune=False):
     phase_train = tf.placeholder(tf.bool, name='phase_train')
 
     # Build a Graph that computes the logits predictions from the inference model.
-    logits = model.inference(train_data_node, phase_train, FLAGS.batch_size) #tensor, nothing calculated yet
-
+    logits = model.inference(train_data_node, phase_train, FLAGS.batch_size, keep_probability) #tensor, nothing calculated yet
     #Calculate loss:
-    # loss = model.loss(logits, train_labels_node)
     loss = model.cal_loss(logits, train_labels_node)
-
-    # Build a Graph that trains the model with one batch of examples and
-    # updates the model parameters.
+    # Build a Graph that trains the model with one batch of examples and updates the model parameters.
     train_op = model.train(loss, global_step)
-
     # Create a saver.
     saver = tf.train.Saver(tf.global_variables())
-
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.summary.merge_all()
 
@@ -118,7 +124,7 @@ def train(is_finetune=False):
     #Defining session like this means you do not have to explicitly close the session.
     with tf.Session() as sess:
       if (is_finetune == True):
-          saver.restore(sess, FLAGS.testing ) #FLAGS.testing is ckpt
+          saver.restore(sess, FLAGS.finetune_dir)
       else:
           sess.run(tf.global_variables_initializer())
           sess.run(tf.local_variables_initializer())
@@ -127,7 +133,6 @@ def train(is_finetune=False):
       # Start the queue runners.
       coord = tf.train.Coordinator()
       threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
       summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
       average_pl = tf.placeholder(tf.float32)
       acc_pl = tf.placeholder(tf.float32)
@@ -143,7 +148,8 @@ def train(is_finetune=False):
         feed_dict = {
           train_data_node: image_batch,
           train_labels_node: label_batch,
-          phase_train: True
+          phase_train: True,
+          keep_probability: 0.5
         }
         # storeImageQueue(image_batch, label_batch, step)
         start_time = time.time()
@@ -156,7 +162,7 @@ def train(is_finetune=False):
           num_examples_per_step = FLAGS.batch_size
           examples_per_sec = num_examples_per_step / duration
           sec_per_batch = float(duration)
-
+          print('\n--- Normal training ---')
           format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
                       'sec/batch)')
           print (format_str % (datetime.now(), step, loss_value,
@@ -167,7 +173,8 @@ def train(is_finetune=False):
           Utils.per_class_acc(pred, label_batch)
 
         if step % 100 == 0 or (step + 1) == FLAGS.max_steps:
-          print("start testing.....")
+          """ Validate training by running validation dataset """
+          print(" \n --- Starting testing by running validation dataset ---")
           total_val_loss = 0.0
           hist = np.zeros((FLAGS.num_class, FLAGS.num_class))
           for test_step in range(TEST_ITER):
@@ -175,27 +182,18 @@ def train(is_finetune=False):
             feed_dict = {
               train_data_node: val_images_batch,
               train_labels_node: val_labels_batch,
-              phase_train: True
+              phase_train: True,
+              keep_probability: 1.0 #During validation training no dropout layers
             }
             _val_loss, _val_pred = sess.run(fetches=[loss, logits], feed_dict=feed_dict)
             total_val_loss += _val_loss
             hist += Utils.get_hist(_val_pred, val_labels_batch)
-          print("val loss: ", total_val_loss / TEST_ITER)
-          acc_total = np.diag(hist).sum() / hist.sum()
-          iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
-          test_summary_str = sess.run(fetches=average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
-          acc_summary_str = sess.run(fetches=acc_summary, feed_dict={acc_pl: acc_total})
-          iu_summary_str = sess.run(fetches=iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
-          Utils.print_hist_summery(hist)
-          # per_class_acc(model.eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
+          PREV_VAL_LOSS = total_val_loss/TEST_ITER
+          print("loss for validation dataset: ", total_val_loss / TEST_ITER, ". If this value increases the model is likely overfitting.") #Prev value was: ", PREV_VAL_LOSS)
+          writeSummaries(sess, hist, average_summary, average_pl, total_val_loss, acc_summary, iu_summary, acc_pl, iu_pl, summary_op, step, feed_dict, summary_writer)
 
-          summary_str = sess.run(fetches=summary_op, feed_dict=feed_dict)
-          summary_writer.add_summary(summary_str, step)
-          summary_writer.add_summary(test_summary_str, step)
-          summary_writer.add_summary(acc_summary_str, step)
-          summary_writer.add_summary(iu_summary_str, step)
         # Save the model checkpoint periodically.
-        if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+        if step % 1000 == 0 or step % 500 == 0 or (step + 1) == FLAGS.max_steps:
           checkpoint_path = os.path.join(FLAGS.log_dir, 'model.ckpt')
           saver.save(sess, checkpoint_path, global_step=step)
 
@@ -203,10 +201,27 @@ def train(is_finetune=False):
       coord.join(threads)
 
 
+def writeSummaries(sess, hist,average_summary, average_pl, total_val_loss, acc_summary, iu_summary, acc_pl, iu_pl, summary_op, step, feed_dict, summary_writer):
+  acc_total = np.diag(hist).sum() / hist.sum()
+  iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
+  test_summary_str = sess.run(fetches=average_summary, feed_dict={average_pl: total_val_loss / TEST_ITER})
+  acc_summary_str = sess.run(fetches=acc_summary, feed_dict={acc_pl: acc_total})
+  iu_summary_str = sess.run(fetches=iu_summary, feed_dict={iu_pl: np.nanmean(iu)})
+  Utils.print_hist_summery(hist)
+  # per_class_acc(model.eval_batches(val_images_batch, sess, eval_prediction=_val_pred), val_labels_batch)
+
+  summary_str = sess.run(fetches=summary_op, feed_dict=feed_dict)
+  summary_writer.add_summary(summary_str, step)
+  summary_writer.add_summary(test_summary_str, step)
+  summary_writer.add_summary(acc_summary_str, step)
+  summary_writer.add_summary(iu_summary_str, step)
+
 def test():
   print("----------- In test method ----------")
 
   testing_batch_size = 1
+
+  keep_probability = tf.placeholder(tf.float32, name="keep_probabilty")
 
   image_filenames, label_filenames = Inputs.get_filename_list(FLAGS.test_dir)
   test_data_node = tf.placeholder(tf.float32, shape=[testing_batch_size, FLAGS.image_h, FLAGS.image_w, FLAGS.image_c])  #360, 480, 3
@@ -214,22 +229,18 @@ def test():
 
   phase_train = tf.placeholder(tf.bool, name='phase_train')
 
-  logits = model.inference(test_data_node, phase_train, testing_batch_size)
-
+  logits = model.inference(test_data_node, phase_train, testing_batch_size, keep_probability)
   loss = model.cal_loss(logits, test_labels_node)
-
   pred = tf.argmax(logits, dimension=3)
 
   # get moving avg
-  variable_averages = tf.train.ExponentialMovingAverage(
-                      FLAGS.moving_average_decay)
+  variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_average_decay)
   variables_to_restore = variable_averages.variables_to_restore()
-
   saver = tf.train.Saver(variables_to_restore)
 
   with tf.Session() as sess:
     # Load checkpoint
-    saver.restore(sess, FLAGS.testing)
+    saver.restore(sess, FLAGS.model_ckpt_dir)
 
     images, labels = Inputs.get_all_test_data(image_filenames, label_filenames)
     threads = tf.train.start_queue_runners(sess=sess)
@@ -239,15 +250,16 @@ def test():
       feed_dict = { #maps graph elements to values
         test_data_node: image_batch,
         test_labels_node: label_batch,
-        phase_train: False
+        phase_train: False,
+        keep_probability: 1.0 #During testing droput should be turned off
       }
 
       dense_prediction, im = sess.run(fetches=[logits, pred], feed_dict=feed_dict)
-      # print('dense_prediction')
-      # print(dense_prediction.eval())
+      #Testing if this can be added
+      Utils.per_class_acc(dense_prediction, label_batch)
       # output_image to verify
       if (FLAGS.save_image):
-          Utils.writeImage(im[0], 'testing_image'+str(step)+'.jpeg')
+          Utils.writeImage(im[0], os.path.join('result_imgs','testing_image'+str(step)+'.jpeg')) #Printing all test images
       step=step+1
       hist += Utils.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()
@@ -257,21 +269,21 @@ def test():
 
 
 def checkArgs():
-    if FLAGS.testing != '':
+    if FLAGS.testing == True:
         print('The model is set to Testing')
-        print("check point file: %s"%FLAGS.testing)
-        print("CamVid testing dir: %s"%FLAGS.test_dir)
-    elif FLAGS.finetune != '':
+        print("check point file: %s"%FLAGS.model_ckpt_dir)
+        print("Dataset testing dir: %s"%FLAGS.test_dir)
+    elif FLAGS.finetune == True:
         print('The model is set to Finetune from ckpt')
         print("check point file: %s"%FLAGS.finetune)
-        print("CamVid Image dir: %s"%FLAGS.image_dir)
-        print("CamVid Val dir: %s"%FLAGS.val_dir)
+        print("Dataset Image dir: %s"%FLAGS.image_dir)
+        print("Dataset Val dir: %s"%FLAGS.val_dir)
     else:
         print('The model is set to Training')
         print("Max training Iteration: %d"%FLAGS.max_steps)
         print("Initial lr: %f"%FLAGS.learning_rate)
-        print("CamVid Image dir: %s"%FLAGS.image_dir)
-        print("CamVid Val dir: %s"%FLAGS.val_dir)
+        print("Dataset Image dir: %s"%FLAGS.image_dir)
+        print("Dataset Val dir: %s"%FLAGS.val_dir)
 
     print("Batch Size: %d"%FLAGS.batch_size)
     print("Log dir: %s"%FLAGS.log_dir)
@@ -279,6 +291,7 @@ def checkArgs():
 def main(args):
     checkArgs()
     if FLAGS.testing:
+        print("Testing the model!")
         test()
     elif FLAGS.finetune:
         print("Finetuning the model!")

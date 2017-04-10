@@ -7,8 +7,8 @@ FLAGS = tf.app.flags.FLAGS
 
 def writeImage(image, filename):
     """ store label data to colored image """
-    Building = [128,128,0] #green-ish
     Sky = [0,0,0] #
+    Building = [128,128,0] #green-ish
 
     r = image.copy()
     g = image.copy()

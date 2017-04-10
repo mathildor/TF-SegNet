@@ -44,14 +44,14 @@ def dataset_reader(filename_queue): #prev name: CamVid_reader
  image_filename = filename_queue[0] #tensor of type string
  label_filename = filename_queue[1] #tensor of type string
 
- #get jpeg encoded image
+ #get jpeg/png encoded image
  imageValue = tf.read_file(image_filename)
  labelValue = tf.read_file(label_filename)
 
- #decodes a jpeg image into a uint8 or uint16 tensor
+ #decodes a jpeg/png image into a uint8 or uint16 tensor
  #returns a tensor of type dtype with shape [height, width, depth]
- image_bytes = tf.image.decode_jpeg(imageValue)
- label_bytes = tf.image.decode_jpeg(labelValue)
+ image_bytes = tf.image.decode_png(imageValue)
+ label_bytes = tf.image.decode_png(labelValue) #Labels are png, not jpeg
 
  image = tf.reshape(image_bytes, (FLAGS.image_h, FLAGS.image_w, FLAGS.image_c))
  label = tf.reshape(label_bytes, (FLAGS.image_h, FLAGS.image_w, 1))
@@ -69,12 +69,12 @@ def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: cam
 
   image, label = dataset_reader(filename_queue)
   reshaped_image = tf.cast(image, tf.float32)
-
   min_fraction_of_examples_in_queue = 0.4
   min_queue_examples = int(FLAGS.num_examples_epoch_train *
                            min_fraction_of_examples_in_queue)
+
   print ('Filling queue with %d input images before starting to train. '
-         'This will take a few minutes.' % min_queue_examples)
+         'This may take some time.' % min_queue_examples)
 
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(reshaped_image, label,
@@ -115,8 +115,9 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
         capacity=min_queue_examples + 3 * batch_size)
 
   # Display the training images in the visualizer.
-  tf.summary.image('images', images)
-
+  tf.summary.image('training_images', images)
+  print('generating image and label batch:')
+  print(images) #This has 4 images, since batch size is 4?
   return images, label_batch
 
 def get_all_test_data(im_list, la_list):
