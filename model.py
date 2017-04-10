@@ -200,8 +200,8 @@ def cal_loss(logits, labels):
   ])
 
   labels = tf.cast(labels, tf.int32)
-
   return weighted_loss(logits, labels, num_classes=FLAGS.num_class, head=loss_weight)
+
 
 def weighted_loss(logits, labels, num_classes, head=None): #None is default value (if no other is given)
   """Calculate the loss from the logits and the labels.
@@ -227,6 +227,7 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
       softmax = tf.nn.softmax(logits)
       cross_entropy = -tf.reduce_sum(tf.multiply(labels * tf.log(softmax + epsilon), head), reduction_indices=[1])
       # cross_entropy = -tf.reduce_sum(labels * tf.log(softmax + epsilon), reduction_indices=[1])
+
       cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
       tf.add_to_collection('losses', cross_entropy_mean)
       loss = tf.add_n(tf.get_collection('losses'), name='total_loss')

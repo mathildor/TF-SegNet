@@ -6,9 +6,11 @@ tmp3
 tmp4
 tmp5
 tmp6
+
 result_imgs/
 result_imgs
 tif_converter.py #included in areacoverimage.py
+
 
 
 # Created by https://www.gitignore.io/api/python
