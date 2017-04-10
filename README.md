@@ -17,6 +17,11 @@ The network is based on the SegNet implementation by tkuanlan35: https://github.
 See more in requirements.txt.
 
 ## Usage
+#### Requirements
 pip install -r requirements.txt
 
+#### Run TensorBoard:
+tensorboard --logdir=path/to/log-directory
+
+#### Dataset
 Download the CamVid dataset from: https://github.com/alexgkendall/SegNet-Tutorial, and set correct paths in model_train.py.

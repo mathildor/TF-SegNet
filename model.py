@@ -6,7 +6,7 @@ Builds the model
 
 Building the graph:
   inference()
-  loss()
+  cal_loss()
   train()
 
 """
@@ -72,16 +72,7 @@ def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
 #NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
 #LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 
-#EVAL_BATCH_SIZE = 1
-#BATCH_SIZE = 1
-#READ_DATA_SIZE = 100
 
-# for CamVid
-#IMAGE_HEIGHT = 360
-#IMAGE_WEIGHT = 480
-#IMAGE_DEPTH = 3 #channels, here RGB
-
-#NUM_CLASSES = 11
 
 """
 # Let's load a previously saved meta graph in the default graph
@@ -99,7 +90,7 @@ hyperparameters = tf.get_collection('hyperparameters')
 """
 
 
-def inference(images, phase_train, batch_size):
+def inference(images, phase_train, batch_size, keep_prob):
   """ Inference = slutning. It builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -137,13 +128,17 @@ def inference(images, phase_train, batch_size):
   # pool2
   pool2, pool2_indices = tf.nn.max_pool_with_argmax(conv2, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool2')
+  # relu_dropout2 = tf.nn.dropout(pool2, keep_prob=keep_prob)
   # conv3
   conv3 = conv_layer_with_bn(pool2, [7, 7, 64, 64], phase_train, name="conv3")
+  # conv3 = conv_layer_with_bn(relu_dropout2, [7, 7, 64, 64], phase_train, name="conv3")
 
   # pool3
   pool3, pool3_indices = tf.nn.max_pool_with_argmax(conv3, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool3')
+  # relu_dropout3 = tf.nn.dropout(pool3, keep_prob=keep_prob)
   # conv4
+  # conv4 = conv_layer_with_bn(relu_dropout3, [7, 7, 64, 64], phase_train, name="conv4")
   conv4 = conv_layer_with_bn(pool3, [7, 7, 64, 64], phase_train, name="conv4")
 
   # pool4
@@ -195,37 +190,18 @@ def inference(images, phase_train, batch_size):
     #logit = conv_classifier = prediction
   return conv_classifier
 
+def cal_loss(logits, labels):
+  """ Assigning loss_weight based on median frequncy balancing,
+   and using weighted loss because of unbalanced dataset.
+   High value means fewer instances in the dataset, and makes the instances more important."""
+  loss_weight = np.array([
+    0.9, #class Not building
+    1.0, #class Building
+  ])
 
-def loss(logits, labels):
-  """
-  !! Not used for now, but might use if dataset used is not unbalanced !!
+  labels = tf.cast(labels, tf.int32)
 
-  Adds to the inference graph the ops required to generate loss.
-  Here the one-hot-encoding is done.
-
-  loss func without re-weighting.
-
-  Args:
-    logits: logits from inference function
-    labels: placeholder
-
-  """
-  # Calculate the average cross entropy loss across the batch.
-  logits = tf.reshape(logits, (-1, FLAGS.num_class))
-  labels = tf.reshape(labels, [-1])
-
-  cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits( #one-hot-encoding
-      labels=labels, logits=logits, name='cross_entropy_per_example')
-
-  #reduce mean -> average the cross entropy accross the batch dimension
-  cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-  tf.add_to_collection('losses', cross_entropy_mean)
-
-  # The total loss is defined as the cross entropy loss plus all of the weight
-  # decay terms (L2 loss).
-  loss=tf.add_n(tf.get_collection('losses'), name='total_loss')
-
-  return loss
+  return weighted_loss(logits, labels, num_classes=FLAGS.num_class, head=loss_weight)
 
 def weighted_loss(logits, labels, num_classes, head=None): #None is default value (if no other is given)
   """Calculate the loss from the logits and the labels.
@@ -241,43 +217,21 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
     loss: Loss tensor of type float.
   """
   with tf.name_scope('loss'):
-
       logits = tf.reshape(logits, (-1, num_classes))
-
       epsilon = tf.constant(value=1e-10)
-
       logits = logits + epsilon
-
       # construct one-hot label array
       label_flat = tf.reshape(labels, (-1, 1))
-
       # should be [batch ,num_classes]
       labels = tf.reshape(tf.one_hot(label_flat, depth=num_classes), (-1, num_classes))
-
       softmax = tf.nn.softmax(logits)
-
       cross_entropy = -tf.reduce_sum(tf.multiply(labels * tf.log(softmax + epsilon), head), reduction_indices=[1])
       # cross_entropy = -tf.reduce_sum(labels * tf.log(softmax + epsilon), reduction_indices=[1])
-
       cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-
       tf.add_to_collection('losses', cross_entropy_mean)
-
       loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
-
   return loss
 
-def cal_loss(logits, labels):
-  """ Assigning loss_weight and using weighted loss because of unbalanced dataset """
-  #Using median frequency balancing
-  loss_weight = np.array([
-    0.1826, #
-    9.2595, #Building - makes it more important when given higher value
-  ]) # class 0~1
-
-  labels = tf.cast(labels, tf.int32)
-
-  return weighted_loss(logits, labels, num_classes=FLAGS.num_class, head=loss_weight)
 
 def train(total_loss, global_step):
 
@@ -285,13 +239,11 @@ def train(total_loss, global_step):
     This train method is only for building the graph - defines the part of the graph
     that is needed for training. The actual training is done in the train() in model_train.py.
 
-    ? Adds to the loss graph the ops required to compute and apply gradients.?
-
     Create an optimizer and apply to all trainable variables.
     Add moving average for all trainable variables??
 
     Args:
-      total_loss: Total loss from loss(), -  or cal_loss() in this case?
+      total_loss: Total loss from cal_loss()
       global_step: Integer Variable counting the number of training steps
         processed.
     Returns:
