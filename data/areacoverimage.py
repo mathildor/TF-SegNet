@@ -137,7 +137,7 @@ databaseServer = "localhost"
 databasePort = "5432"
 databaseName = "map_files"
 databaseUser = "postgres"
-databasePW = "motgikjo"
+databasePW = "1234"
 
 wms_url = 'http://www.webatlas.no/wms-orto-std/'
 #image_dir = 'C:/Users/runaas/data/Klassifiseringstest/testimg'
