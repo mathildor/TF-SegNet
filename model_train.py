@@ -19,6 +19,8 @@ FLAGS = tf.app.flags.FLAGS
 #Training
 tf.app.flags.DEFINE_string('log_dir', "tmp/large_dataset_lessWeightDiff_png/logs",
                            """ dir to store training ckpt """)
+tf.app.flags.DEFINE_integer('max_steps', "5000",
+                            """ max_steps for training """)
 
 #Testing
 tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
@@ -44,6 +46,9 @@ tf.app.flags.DEFINE_integer('image_w', "512",
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
+                            """ total class number """)
+
+
 #Directories
 tf.app.flags.DEFINE_string('image_dir', "../aerial_img_1400/train_images/png",
                            """ path to image """)
@@ -58,6 +63,7 @@ tf.app.flags.DEFINE_integer('num_examples_epoch_train', "1000",
 tf.app.flags.DEFINE_integer('num_examples_epoch_test', "200",
                            """ num examples per epoch for test """)
 
+tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
 
 """ TRAINING PARAMETERS"""
 tf.app.flags.DEFINE_integer('batch_size', "5",
@@ -74,10 +80,6 @@ tf.app.flags.DEFINE_float('learning_rate', "1e-3", #Figure out what is best for 
 tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
                            """ The decay to use for the moving average""")
 
-tf.app.flags.DEFINE_integer('max_steps', "5000",
-                            """ max_steps """)
-tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
-                            """ total class number """)
 
 
 
@@ -251,7 +253,7 @@ def test():
         test_data_node: image_batch,
         test_labels_node: label_batch,
         phase_train: False,
-        keep_probability: 1.0 #During testing droput should be turned off
+        keep_probability: 1.0 #During testing droput should be turned off -> 100% chance for keeping variable
       }
 
       dense_prediction, im = sess.run(fetches=[logits, pred], feed_dict=feed_dict)
