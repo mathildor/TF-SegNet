@@ -74,29 +74,13 @@ def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
 
 
 
-"""
-# Let's load a previously saved meta graph in the default graph
-# This function returns a Saver
-saver = tf.train.import_meta_graph('results/model.ckpt-1000.meta')
-
-# We can now access the default graph where all our metadata has been loaded
-graph = tf.get_default_graph()
-
-# Finally we can retrieve tensors, operations, collections, etc.
-global_step_tensor = graph.get_tensor_by_name('loss/global_step:0')
-train_op = graph.get_operation_by_name('loss/train_op')
-hyperparameters = tf.get_collection('hyperparameters')
-
-"""
-
-
 def inference(images, phase_train, batch_size, keep_prob):
-  """ Inference = slutning. It builds the graph as far as is required for running the network forward
+  """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
-      Builds the model. The arcitecure has 4 sets of sizes on layers, each appears twice
+      The arcitecure has 4 different layer sizes, each appear twice
       - once in the encoder and once in the decoder. Each "block" of layers (with the sames size)
-      are of different types. Block one for example has two conv-batch-relu layer and one pooling layer.
+      are of different types. For example block one  has two conv-batch-relu layer and one pooling layer.
 
       Args:
         images: Images Tensors (placeholder with correct shape, img_h, img_w, img_d)
@@ -195,8 +179,8 @@ def cal_loss(logits, labels):
    and using weighted loss because of unbalanced dataset.
    High value means fewer instances in the dataset, and makes the instances more important."""
   loss_weight = np.array([
-    0.9, #class Not building
-    1.0, #class Building
+    0.8, #class Not building
+    1.1, #class Building
   ])
 
   labels = tf.cast(labels, tf.int32)

@@ -17,21 +17,21 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/large_dataset_lessWeightDiff_png/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/aerial_4600_png_batch8_10000_lossdiff2/logs",
                            """ dir to store training ckpt """)
 
-#Testing
-tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+#Testing+
+tf.app.flags.DEFINE_boolean('testing', True, #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/large_dataset_lessWeightDiff_png/logs/model.ckpt-4000', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/aerial_4600_png_batch8_10000_lossdiff2/logs/model.ckpt-69000', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
 
 #Finetuning
-tf.app.flags.DEFINE_boolean('finetune', True,
+tf.app.flags.DEFINE_boolean('finetune', False,
                            """ Whether to finetune or not """)
-tf.app.flags.DEFINE_string('finetune_dir', 'tmp/large_dataset_lessWeightDiff_png/logs/model.ckpt-4999',
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/aerial_4600_png_batch8_10000_lossdiff2/logs/model.ckpt-39500',
                            """ Path to the checkpoint file to finetune from """)
 
 
@@ -45,22 +45,22 @@ tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
 #Directories
-tf.app.flags.DEFINE_string('image_dir', "../aerial_img_1400/train_images/png",
+tf.app.flags.DEFINE_string('image_dir', "../aerial_img_4600/train_images/png",
                            """ path to image """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_img_1400/test_images/png",
+tf.app.flags.DEFINE_string('test_dir', "../aerial_img_4600/test_images/png",
                            """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_img_1400/val_images/png",
+tf.app.flags.DEFINE_string('val_dir', "../aerial_img_4600/val_images/png",
                            """ path to val image """)
 
 #Dataset size. #Epoch = one pass of the whole dataset.
-tf.app.flags.DEFINE_integer('num_examples_epoch_train', "1000",
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "3337",
                            """ num examples per epoch for train """)
 tf.app.flags.DEFINE_integer('num_examples_epoch_test', "200",
                            """ num examples per epoch for test """)
 
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "5",
+tf.app.flags.DEFINE_integer('batch_size', "8",
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
@@ -74,7 +74,7 @@ tf.app.flags.DEFINE_float('learning_rate', "1e-3", #Figure out what is best for 
 tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
                            """ The decay to use for the moving average""")
 
-tf.app.flags.DEFINE_integer('max_steps', "5000",
+tf.app.flags.DEFINE_integer('max_steps', "30000",
                             """ max_steps """)
 tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
                             """ total class number """)

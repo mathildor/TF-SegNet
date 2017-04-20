@@ -50,11 +50,20 @@ def create_png_versions(path, img_type):
     create_dir(save_to_path)
 
     images = sorted(os.listdir(path))
-    for image in images:
-        outfile = image.replace(' ', '')[:-3]+"png" #removing .tif ending and replacing with .png
-        im = Image.open(os.path.join(path, image))
-        print("Generating png for %s" % image)
-        im=im.convert('RGB')
+    for image_file in images:
+        outfile = image_file.replace(' ', '')[:-3]+"png" #removing .tif ending and replacing with .png
+        im = Image.open(os.path.join(path, image_file))
+        print("Generating png for %s" % image_file)
+
+        if img_type == "labels":
+            pixels = im.load()
+
+            for x in range(0, im.size[0]):
+                for y in range(0, im.size[1]):
+                    if pixels[x,y] == 14: #converting to correct classname
+                        pixels[x,y] = 1
+        else:
+            im=im.convert('RGB')
         im.thumbnail(im.size)
         im.save(os.path.join(save_to_path, outfile), "PNG", quality=100)
 
@@ -140,11 +149,11 @@ databaseUser = "postgres"
 databasePW = "motgikjo"
 
 wms_url = 'http://www.webatlas.no/wms-orto-std/'
-#image_dir = 'C:/Users/runaas/data/Klassifiseringstest/testimg'
+# image_dir = 'C:/Users/runaas/data/Klassifiseringstest/testimg'
 # image_dir = './aerial_img/test_images'
-base_dir  = './aerial_img_val/'
-image_dir = base_dir+'images/'
-label_dir = base_dir+'labels/'
+base_dir  = '../../aerial_img_4600/val_images/'
+image_dir = base_dir+'tif/images/'
+label_dir = base_dir+'tif/labels/'
 
 #create directory structure
 create_dir(base_dir)
@@ -155,8 +164,8 @@ col_pixel_size = 0.2
 col_image_dim = 512
 cat_image_dim = 512 #prev 27
 cat_pixel_size = col_pixel_size * col_image_dim / cat_image_dim
-max_image_nr = 1400
-image_nr = 1201
+max_image_nr = 4500
+image_nr = 4200
 
 connString = "PG: host=%s port=%s dbname=%s user=%s password=%s" % (databaseServer, databasePort, databaseName, databaseUser, databasePW)
 

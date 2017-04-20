@@ -8,10 +8,12 @@ import numpy
     It therefor needs to be changed into 1, since the really belong to class 1 and not class 14.
 """
 
-image_path="../masterproject/aerial_img_1400/val_images/jpeg/labels"
-outpath = "../masterproject/aerial_img_1400/val_images/jpeg/labels_correct"
+image_path="../../aerial_img_4600/val_images/png/labels"
+outpath = "../masterproject/aerial_img_4600/val_images/png/labels_correct"
 
 images = sorted(os.listdir(image_path))
+
+existing_pixelvalues = []
 
 for image_file in images:
 
@@ -20,7 +22,11 @@ for image_file in images:
 
     for x in range(0, image.size[0]):
         for y in range(0, image.size[1]):
+            if pixels[x,y] not in existing_pixelvalues:
+                existing_pixelvalues.append(pixels[x,y])
             if pixels[x,y] == 14:
                 pixels[x,y] = 1
 
-    image.save(os.path.join(outpath, image_file), "PNG", quality=100)
+    print(existing_pixelvalues)
+    break#testing with just one image
+    #image.save(os.path.join(outpath, image_file), "PNG", quality=100)
