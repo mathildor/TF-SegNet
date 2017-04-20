@@ -11,7 +11,7 @@ result_imgs/
 result_imgs
 tif_converter.py #included in areacoverimage.py
 
-
+.DS_store
 
 # Created by https://www.gitignore.io/api/python
 
