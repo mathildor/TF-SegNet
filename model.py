@@ -16,25 +16,15 @@ Building the graph:
 
 import os # provides a portable way of using operating system dependent functionality, example read file
 import re
-import sys
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
-from tensorflow.python.framework import dtypes
 
 import numpy as np
-import math
-from datetime import datetime
 import time
-
-from PIL import Image
-
-#from tensorflow.python import control_flow_ops
-
+import math
 from math import ceil
 from tensorflow.python.ops import gen_nn_ops
-import skimage
-import skimage.io
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -42,9 +32,7 @@ FLAGS = tf.app.flags.FLAGS
 import Utils
 from Inputs import *
 
-
-
-#creating own gradient function that does not exist default
+#creating own gradient function that does not exist by default
   # not sure why and where it is used? Somewhere in the deconvolution?
 @ops.RegisterGradient("MaxPoolWithArgmax")
 def _MaxPoolWithArgmaxGrad(op, grad, unused_argmax_grad):
@@ -56,31 +44,18 @@ def _MaxPoolWithArgmaxGrad(op, grad, unused_argmax_grad):
                                    padding=op.get_attr("padding"),
                                    data_format='NHWC')
 
-""" Found this here: https://github.com/tensorflow/tensorflow/issues/1793. maybe this is better?
-@ops.RegisterGradient("MaxPoolWithArgmax")
-def _MaxPoolGradWithArgmax(op, grad, unused_argmax_grad):
-  return gen_nn_ops._max_pool_grad_with_argmax(op.inputs[0],
-                                               grad,
-                                               op.outputs[1],
-                                               op.get_attr("ksize"),
-                                               op.get_attr("strides"),
-                                               padding=op.get_attr("padding"))
-"""
-
-
 # Constants describing the training process.
 #NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
 #LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 
-
-
+""" With pooling indices """
 def inference(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
-      The arcitecure has 4 different layer sizes, each appear twice
+      The arcitecure has 4(5) different layer sizes, each appear twice
       - once in the encoder and once in the decoder. Each "block" of layers (with the sames size)
-      are of different types. For example block one  has two conv-batch-relu layer and one pooling layer.
+      are of different types. For example block one has two conv-batch-relu layers and one pooling layer.
 
       Args:
         images: Images Tensors (placeholder with correct shape, img_h, img_w, img_d)
@@ -90,75 +65,71 @@ def inference(images, phase_train, batch_size, keep_prob):
         logit (scores for the classes, that sums up to 1)
   """
   # norm1
-    #tf.nn.lrn = local response normalisation
+    #tf.nn.lrn = local response normalization
   norm1 = tf.nn.lrn(images, depth_radius=5, bias=1.0, alpha=0.0001, beta=0.75,
                          name='norm1')
   # conv1
-    #input to: (inputT, shape, train_phase, activation=True, name=None)
-    #shape is used to create kernel (kernel is the filter that will be convolved over the input)
-    #shape = [patch_size_width, patch_size_heigh, input_channels, output_channels]
-    #input_channels are three since the images has three channels => IMAGE_DEPTH=3
   conv1 = conv_layer_with_bn(norm1, [7, 7, images.get_shape().as_list()[3], 64], phase_train, name="conv1")
   # pool1
-    #max_pool_with_argmax: Args: input tensor to pool over, ksize=window size for input tensor.
-    #strides = [bach_size, image_rows, image_cols, number_of_colors].
-    #[1,2,2,1] -> want to apply the filters on every second row and column.
   pool1, pool1_indices = tf.nn.max_pool_with_argmax(conv1, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool1')
   # conv2
-    #Since output_channels of conv1 was 64, input_channels for conv2 is 64
   conv2 = conv_layer_with_bn(pool1, [7, 7, 64, 64], phase_train, name="conv2")
 
   # pool2
   pool2, pool2_indices = tf.nn.max_pool_with_argmax(conv2, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool2')
-  # relu_dropout2 = tf.nn.dropout(pool2, keep_prob=keep_prob)
+  dropout2 = tf.nn.dropout(pool2, keep_prob=keep_prob, name="dropout-pool2")
   # conv3
-  conv3 = conv_layer_with_bn(pool2, [7, 7, 64, 64], phase_train, name="conv3")
-  # conv3 = conv_layer_with_bn(relu_dropout2, [7, 7, 64, 64], phase_train, name="conv3")
+  #conv3 = conv_layer_with_bn(pool2, [7, 7, 64, 64], phase_train, name="conv3")
+  conv3 = conv_layer_with_bn(dropout2, [7, 7, 64, 64], phase_train, name="conv3")
 
   # pool3
   pool3, pool3_indices = tf.nn.max_pool_with_argmax(conv3, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool3')
-  # relu_dropout3 = tf.nn.dropout(pool3, keep_prob=keep_prob)
+  dropout3 = tf.nn.dropout(pool3, keep_prob=keep_prob, name="dropout-pool3")
   # conv4
-  # conv4 = conv_layer_with_bn(relu_dropout3, [7, 7, 64, 64], phase_train, name="conv4")
-  conv4 = conv_layer_with_bn(pool3, [7, 7, 64, 64], phase_train, name="conv4")
+  conv4 = conv_layer_with_bn(dropout3, [7, 7, 64, 64], phase_train, name="conv4")
+  #conv4 = conv_layer_with_bn(pool3, [7, 7, 64, 64], phase_train, name="conv4")
 
   # pool4
   pool4, pool4_indices = tf.nn.max_pool_with_argmax(conv4, ksize=[1, 2, 2, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool4')
+
   """ End of encoder """
 
   """ start upsample """
-  # upsample4
-  # Need to change when using different dataset out_w, out_h
-  # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
-
-
   #During downsampling the size is halfed each layer, here it is the opposite. Therefor dimension is divided by 8 - 4 - 2 - 1
 
-  upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
-  # decode 4
-  conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
+  # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), name='upsample4')
+  # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=FLAGS.image_h//8, out_h=FLAGS.image_w//8, scale=2, name='upsample4')
+  deconv_4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
+  conv_decode4 = conv_layer_with_bn(deconv_4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
+  deconv_dropout4 = tf.nn.dropout(conv_decode4, keep_prob=keep_prob, name="dropout-deconv4")
+  print('\n -- deconv_dropout4:')
+  print(deconv_4)
+  print(conv_decode4)
+  print(deconv_dropout4)
 
-  # upsample 3
-  # upsample3 = upsample_with_pool_indices(conv_decode4, pool3_indices, conv_decode4.get_shape(), scale=2, name='upsample3')
-  upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
-  # decode 3
-  conv_decode3 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
+  unpool_3 = upsample_with_pool_indices(values=deconv_dropout4, indices=pool3_indices, out_shape=conv3.get_shape(), name='unpool_3')
+  # deconv_3 = deconv_layer(unpool_3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
+  # deconv_3 = deconv_layer(deconv_dropout4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
+  conv_decode3 = conv_layer_with_bn(unpool_3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
+  deconv_dropout3 = tf.nn.dropout(conv_decode3, keep_prob=keep_prob, name="dropout-conv_decode3")
+  print('\n -- deconv_dropout3:')
+  # print(deconv_3)
+  print(conv_decode3)
+  print(deconv_dropout3)
 
-  # upsample2
-  # upsample2 = upsample_with_pool_indices(conv_decode3, pool2_indices, conv_decode3.get_shape(), scale=2, name='upsample2')
-  upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
-  # decode 2
-  conv_decode2 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
+  # unpool_2 = upsample_with_pool_indices(values=deconv_dropout3, indices=pool2_indices, out_shape=conv2.get_shape(), name='unpool_2')
+  # deconv_2= deconv_layer(unpool_2, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
+  deconv_2= deconv_layer(deconv_dropout3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
+  conv_decode2 = conv_layer_with_bn(deconv_2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
 
-  # upsample1
-  # upsample1 = upsample_with_pool_indices(conv_decode2, pool1_indices, conv_decode2.get_shape(), scale=2, name='upsample1')
-  upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
-  # decode4
-  conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
+  # unpool_1 = upsample_with_pool_indices(values=conv_decode2, indices=pool1_indices, out_shape=[batch_size, FLAGS.image_h, FLAGS.image_w, 64], name='unpool_1')
+  # deconv_1= deconv_layer(unpool_1, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
+  deconv_1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
+  conv_decode1 = conv_layer_with_bn(deconv_1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
 
   """ Start Classify """
@@ -173,6 +144,123 @@ def inference(images, phase_train, batch_size, keep_prob):
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
     #logit = conv_classifier = prediction
   return conv_classifier
+
+# def inference(images, phase_train, batch_size, keep_prob):
+#   """ Inference builds the graph as far as is required for running the network forward
+#       to make predictions.
+#
+#       The arcitecure has 4(5) different layer sizes, each appear twice
+#       - once in the encoder and once in the decoder. Each "block" of layers (with the sames size)
+#       are of different types. For example block one has two conv-batch-relu layers and one pooling layer.
+#
+#       Args:
+#         images: Images Tensors (placeholder with correct shape, img_h, img_w, img_d)
+#         phase_train:
+#
+#       Returns:
+#         logit (scores for the classes, that sums up to 1)
+#   """
+#   # norm1
+#     #tf.nn.lrn = local response normalization
+#   norm1 = tf.nn.lrn(images, depth_radius=5, bias=1.0, alpha=0.0001, beta=0.75,
+#                          name='norm1')
+#   # conv1
+#     #input to: (inputT, shape, train_phase, activation=True, name=None)
+#     #shape is used to create kernel (kernel is the filter that will be convolved over the input)
+#     #shape = [patch_size_width, patch_size_heigh, input_channels, output_channels]
+#     #input_channels are three since the images has three channels => IMAGE_DEPTH=3
+#   conv1 = conv_layer_with_bn(norm1, [7, 7, images.get_shape().as_list()[3], 64], phase_train, name="conv1")
+#   # pool1
+#     #max_pool_with_argmax: Args: input tensor to pool over, ksize=window size for input tensor.
+#     #strides = [bach_size, image_rows, image_cols, number_of_colors].
+#     #[1,2,2,1] -> want to apply the filters on every second row and column.
+#   pool1, pool1_indices = tf.nn.max_pool_with_argmax(conv1, ksize=[1, 2, 2, 1],
+#                          strides=[1, 2, 2, 1], padding='SAME', name='pool1')
+#   # conv2
+#     #Since output_channels of conv1 was 64, input_channels for conv2 is 64
+#   conv2 = conv_layer_with_bn(pool1, [7, 7, 64, 64], phase_train, name="conv2")
+#
+#   # pool2
+#   pool2, pool2_indices = tf.nn.max_pool_with_argmax(conv2, ksize=[1, 2, 2, 1],
+#                          strides=[1, 2, 2, 1], padding='SAME', name='pool2')
+#   dropout2 = tf.nn.dropout(pool2, keep_prob=keep_prob, name="dropout-pool2")
+#   # conv3
+#   #conv3 = conv_layer_with_bn(pool2, [7, 7, 64, 64], phase_train, name="conv3")
+#   conv3 = conv_layer_with_bn(dropout2, [7, 7, 64, 64], phase_train, name="conv3")
+#
+#   # pool3
+#   pool3, pool3_indices = tf.nn.max_pool_with_argmax(conv3, ksize=[1, 2, 2, 1],
+#                          strides=[1, 2, 2, 1], padding='SAME', name='pool3')
+#   dropout3 = tf.nn.dropout(pool3, keep_prob=keep_prob, name="dropout-pool3")
+#   # conv4
+#   conv4 = conv_layer_with_bn(dropout3, [7, 7, 64, 64], phase_train, name="conv4")
+#   #conv4 = conv_layer_with_bn(pool3, [7, 7, 64, 64], phase_train, name="conv4")
+#
+#   # pool4
+#   pool4, pool4_indices = tf.nn.max_pool_with_argmax(conv4, ksize=[1, 2, 2, 1],
+#                          strides=[1, 2, 2, 1], padding='SAME', name='pool4')
+#
+#   """ Add more layers? """
+#   # conv5 = conv_layer_with_bn(pool4, [7, 7, 64, 64], phase_train, name="conv5")
+#   #
+#   # #pool5
+#   # pool5, pool5_indices = tf.nn.max_pool_with_argmax(conv5, ksize=[1, 2, 2, 1],
+#   #                         strides=[1, 2, 2, 1], padding='SAME', name='pool5')
+#   """ End of encoder """
+#
+#   """ start upsample """
+#   # upsample4
+#   # Need to change when using different dataset out_w, out_h
+#   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
+#
+#
+#   #During downsampling the size is halfed each layer, here it is the opposite. Therefor dimension is divided by 8 - 4 - 2 - 1
+#
+#   """ Add more layers? """
+#   # #upsample 5
+#   # upsample5 = deconv_layer(pool5, [2, 2, 64, 64], [batch_size, FLAGS.image_h//16, FLAGS.image_w//16, 64], 2, "up5")
+#   # # decode 5
+#   # conv_decode5 = conv_layer_with_bn(upsample5, [7, 7, 64, 64], phase_train, False, name="conv_decode5")
+#
+#   #upsample4
+#   upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
+#   # decode 4
+#   conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
+#
+#   deconv_dropout4 = tf.nn.dropout(conv_decode4, keep_prob=keep_prob, name="dropout-deconv4")
+#
+#   # upsample 3
+#   # upsample3= deconv_layer(conv_decode4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
+#   upsample3= deconv_layer(deconv_dropout4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
+#   # decode 3
+#   conv_decode3 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
+#   deconv_dropout3 = tf.nn.dropout(conv_decode3, keep_prob=keep_prob, name="dropout-deconv3")
+#
+#   # upsample2
+#   # upsample2= deconv_layer(conv_decode3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
+#   upsample2= deconv_layer(deconv_dropout3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
+#   # decode 2
+#   conv_decode2 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
+#
+#   # upsample1
+#   upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
+#   # decode4
+#   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
+#   """ end of Decode """
+#
+#   """ Start Classify """
+#   # output predicted class number (6)
+#   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
+#     kernel = _variable_with_weight_decay('weights',
+#                                          shape=[1, 1, 64, FLAGS.num_class],
+#                                          initializer=msra_initializer(1, 64),
+#                                          wd=0.0005)
+#     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
+#     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
+#     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
+#     #logit = conv_classifier = prediction
+#   return conv_classifier
+
 
 def cal_loss(logits, labels):
   """ Assigning loss_weight based on median frequncy balancing,
@@ -247,6 +335,8 @@ def train(total_loss, global_step):
   # Compute gradients.
   with tf.control_dependencies([loss_averages_op]):
     opt = tf.train.AdamOptimizer(lr)
+    print('total_loss')
+    print(total_loss)
     grads = opt.compute_gradients(total_loss)
 
   #Apply gradients.
@@ -458,38 +548,140 @@ def get_deconv_filter(f_shape):
                          shape=weights.shape)
 
 
-def dump_unravel(indices, shape):
-    """
-    self-implented unravel indice, missing gradients, need fix
-    """
-    N = indices.get_shape().as_list()[0]
-    tb = tf.constant([shape[0]], shape=[1,N])
-    ty = tf.constant([shape[1]], shape=[1,N])
-    tx = tf.constant([shape[2]], shape=[1,N])
-    tc = tf.constant([shape[3]], shape=[1,N])
+def upsample_with_pool_indices_testing(value, raveled_indices, out_shape, name):
+    print("\n raveled indices: ")
+    print(raveled_indices)
+    argmax = unravel_index(raveled_indices, out_shape.as_list())
+    print(" unraveled indices")
+    print(argmax)
+    print('out_shape')
+    print(out_shape)
+    out_shape_list = out_shape.as_list()
 
-    c = indices % tc
-    x = ((indices - c) // tc ) % tx
-    t_temp = ((indices - c) // tc)
-    y = ((t_temp - x) // tx) % ty
-    t_temp = ((t_temp - x) // tx)
-    b = (t_temp - y) // ty
+    batch_size = out_shape_list[0]
+    height = out_shape_list[1]
+    width = out_shape_list[2]
+    channels = out_shape_list[3]
+    print("height, widht, channels")
+    print(height)
+    print(width)
+    print(channels)
 
-    t_new = tf.transpose(tf.reshape(tf.pack([b,y,x,c]), (4, N)))
-    return t_new
+    t1 = tf.to_int64(tf.range(channels))
+    t1 = tf.tile(t1, [((width + 1) // 2) * ((height + 1) // 2)])
+    t1 = tf.reshape(t1, shape=[-1, channels])
+    print(" t1 before transpose")
+    print(t1)
+    t1 = tf.transpose(t1, perm=[1, 0])
+    #reshape value with same values but different shape
+    t1 = tf.reshape(t1, shape=[channels, (height + 1) // 2, (width + 1) // 2, 1])
 
-def upsample_with_pool_indices(value, indices, shape=None, scale=2, out_w=None, out_h=None,name="up"):
+    t2 = tf.squeeze(argmax)
+    t2 = tf.stack((t2[0], t2[1]), axis=0)
+    print("t2 after stacking - before transpose:")
+    print(t2)
+    t2 = tf.transpose(t2, perm=[3, 1, 2, 0]) #Kræsjer her!
+
+    t = tf.concat(3, [t2, t1])
+    indices = tf.reshape(t, shape=[((height + 1) // 2) * ((width + 1) // 2) * channels, 3])
+
+    x1 = tf.squeeze(value)
+    x1 = tf.reshape(x1, shape=[-1, channels])
+    x1 = tf.transpose(x1, perm=[1, 0])
+    values = tf.reshape(x1, shape=[-1])
+
+    delta = tf.SparseTensor(indices, values, tf.to_int64(out_shape))
+    print("\n")
+    return tf.expand_dims(tf.sparse_tensor_to_dense(tf.sparse_reorder(delta), name=name), 0)
+
+def unravel_argmax(argmax, shape): #returns a shape of (2, 1835008)
+    print("\n in unravel_argmax ----")
+    print('shape_:')
+    print(shape)
+    print(shape[2])
+    width = shape[2]
+    channels = shape[3]
+    # shape=shape.as_list()
+    output_list = []
+    output_list.append(argmax // (shape[2] * shape[3]))
+    print('output_list 1')
+    print(output_list)
+    output_list.append(argmax % (shape[2] * shape[3]) // shape[3])
+    print('output_list 2')
+    print(output_list)
+    return tf.stack(output_list,  axis=0)
+
+def upsample_with_pool_indices(values, indices, out_shape, name):
+  #flatten values into one dimension
+  # print("\n UPSAMPLING NEW LAYER:")
+  # print('out_shape')
+  # print(out_shape)
+  # print('values shape:')
+  # print(values.get_shape)
+  # print('\nindices shape:')
+  # print(indices.get_shape)
+  indices = tf.reshape(indices, [-1])
+  ind=tf.Print(indices, [indices])
+  ind.eval()
+
+  unraveled_indices = tf.transpose(unravel_index(tf.to_int64(indices), tf.to_int64(out_shape))) #Tranpose result, because it directly gives correct indices for result matrix
+  # print("unraveled indices")
+  # print(unravel_index(tf.to_int64(indices), tf.to_int64(out_shape)))
+  # print(unraveled_indices)
+  values_flattened = tf.reshape(values, [-1])
+
+  result_matrix = tf.SparseTensor(tf.to_int64(unraveled_indices), tf.to_int64(values_flattened), tf.to_int64(out_shape))
+  res_matrix_dense = tf.sparse_tensor_to_dense(tf.to_float(result_matrix), name=name, validate_indices=False)
+
+  # print("RESULT:")
+  # print(res_matrix_dense)
+  return res_matrix_dense
+
+def unravel_index(indices, shape):
+  with tf.name_scope('unravel_index'):
+    indices = tf.expand_dims(indices, 0)
+    shape = tf.expand_dims(shape, 1)
+    strides = tf.cumprod(shape, reverse=True)
+    strides_shifted = tf.cumprod(shape, exclusive=True, reverse=True)
+    res = (indices // strides_shifted) % strides
+    # print(res)
+    return (indices // strides_shifted) % strides
+
+    #Example:
+        #out = unravel_index([22, 41, 37], (7, 6))
+        #print(s.run(out))
+            # ==> [[3 6 6]
+            #   [4 5 1]]
+
+def upsample_with_pool_indices_2(value, indices, shape=None, scale=2, out_w=None, out_h=None, name="up"):
     s = shape.as_list()
-    b = s[0]
+    print('\n Indices before unravel: ')
+    print( indices)
+    print(" shape as list: ")
+    print( s)
+    b = s[0] #batch
     w = s[1]
     h = s[2]
     c = s[3]
     if out_w is not None:
-      unraveled = dump_unravel(tf.to_int32(tf.reshape(indices,[b*w*h*c])), [b, out_w, out_h, c])
-      ts = tf.SparseTensor(indices=tf.to_int64(unraveled), values=tf.reshape(value, [b*w*h*c]), shape=[b,out_w,out_h,c])
+      unraveled = unravel_argmax(tf.to_int32(tf.reshape(indices,[b*w*h*c])), [b, out_w, out_h, c])
+      # print(" unraveled:  ")
+      # print( unraveled)
+      indices = tf.to_int64(unraveled)
+      print(" Indices after unravel: ")
+      print( indices)
+      values = tf.reshape(value, [b*w*h*c])
+      print(" calced values: ")
+      print( values )
+      dense_shape = tf.to_int64([b,out_w,out_h,c])
+      print(" Dense shape for output matrix: ") #7. 128, 128, 64
+      print(dense_shape)
+      print("\n")
+
+      ts = tf.SparseTensor(indices=tf.to_int64(unraveled), values=tf.reshape(value, [b*w*h*c]), dense_shape=tf.to_int64([b,out_w,out_h,c]))
     else:
-      unraveled = dump_unravel(tf.to_int32(tf.reshape(indices,[b*w*h*c])), [b, w*scale, h*scale, c])
-      ts = tf.SparseTensor(indices=tf.to_int64(unraveled), values=tf.reshape(value, [b*w*h*c]), shape=[b,w*scale,h*scale,c])
+      unraveled = unravel_index(tf.to_int32(tf.reshape(indices,[b*w*h*c])), [b, w*scale, h*scale, c])
+      ts = tf.SparseTensor(indices=tf.to_int64(unraveled), values=tf.reshape(value, [b*w*h*c]), dense_shape=tf.to_int64([b,w*scale,h*scale,c]))
 
     t_dense = tf.sparse_tensor_to_dense(ts, name=name, validate_indices=False)
     return t_dense

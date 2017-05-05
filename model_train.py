@@ -1,12 +1,11 @@
 
-
 import tensorflow as tf
 import time
 from datetime import datetime
 import numpy as np
 import os
 
-#rest of the code
+#other modules
 import model
 import Utils
 import Inputs
@@ -17,23 +16,23 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/aerial_4600_png_batch8_10000_lossdiff2/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_IR_set_v2/test/logs",
                            """ dir to store training ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', "5000",
+tf.app.flags.DEFINE_integer('max_steps', "20000",
                             """ max_steps for training """)
 
-#Testing+
-tf.app.flags.DEFINE_boolean('testing', True, #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+#Testing
+tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999.
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/aerial_4600_png_batch8_10000_lossdiff2/logs/model.ckpt-69000', #insert path to log file: tmp/logs/model.ckpt-19999. Running automatic if not empty string
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-22500', #insert path to log file: tmp/logs/model.ckpt-19999.
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
 
-#Finetuning
-tf.app.flags.DEFINE_boolean('finetune', False,
+#Finetunings
+tf.app.flags.DEFINE_boolean('finetune', True,
                            """ Whether to finetune or not """)
-tf.app.flags.DEFINE_string('finetune_dir', 'tmp/aerial_4600_png_batch8_10000_lossdiff2/logs/model.ckpt-39500',
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-4999',
                            """ Path to the checkpoint file to finetune from """)
 
 
@@ -46,38 +45,45 @@ tf.app.flags.DEFINE_integer('image_w', "512",
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
-                            """ total class number """)
-
 
 #Directories
-tf.app.flags.DEFINE_string('image_dir', "../aerial_img_4600/train_images/png",
-                           """ path to image """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_img_4600/test_images/png",
+# tf.app.flags.DEFINE_string('image_dir', "../aerial_img_4600/train_images/png",
+#                            """ path to training images """)
+# tf.app.flags.DEFINE_string('test_dir', "../aerial_img_4600/test_images/png",
+#                            """ path to test image """)
+# tf.app.flags.DEFINE_string('val_dir', "../aerial_img_4600/val_images/png",
+#                            """ path to val image """)
+tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/train_images",
+                           """ path to training images """)
+tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/test_images",
                            """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_img_4600/val_images/png",
+tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/val_images",
                            """ path to val image """)
 
 #Dataset size. #Epoch = one pass of the whole dataset.
-tf.app.flags.DEFINE_integer('num_examples_epoch_train', "3337",
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "3720",
                            """ num examples per epoch for train """)
-tf.app.flags.DEFINE_integer('num_examples_epoch_test', "200",
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "460",
                            """ num examples per epoch for test """)
+tf.app.flags.DEFINE_float('fraction_of_examples_in_queue', "0.4",
+                           """ Fraction of examples from datasat to put in queue. Large datasets need smaller value, otherwise memory gets full. """)
 
 tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
+                            """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "8",
+tf.app.flags.DEFINE_integer('batch_size', "5",
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "2",
+tf.app.flags.DEFINE_integer('eval_batch_size', "6",
                             """ Eval batch_size """)
 
 
 tf.app.flags.DEFINE_float('learning_rate', "1e-3", #Figure out what is best for AdamOptimizer!
                            """ initial lr """)
 
-tf.app.flags.DEFINE_float('moving_average_decay', "0.9999",
+tf.app.flags.DEFINE_float('moving_average_decay', "0.9999", #https://www.tensorflow.org/versions/r0.12/api_docs/python/train/moving_averages
                            """ The decay to use for the moving average""")
 
 
@@ -113,6 +119,8 @@ def train(is_finetune=False):
 
     # Build a Graph that computes the logits predictions from the inference model.
     logits = model.inference(train_data_node, phase_train, FLAGS.batch_size, keep_probability) #tensor, nothing calculated yet
+    print("\n -- After logts init!")
+
     #Calculate loss:
     loss = model.cal_loss(logits, train_labels_node)
     # Build a Graph that trains the model with one batch of examples and updates the model parameters.
@@ -172,6 +180,8 @@ def train(is_finetune=False):
 
           # eval current training batch pre-class accuracy
           pred = sess.run(fetches=logits, feed_dict=feed_dict)
+          print("\n -- conv in classifier!")
+
           Utils.per_class_acc(pred, label_batch)
 
         if step % 100 == 0 or (step + 1) == FLAGS.max_steps:
@@ -261,7 +271,7 @@ def test():
       Utils.per_class_acc(dense_prediction, label_batch)
       # output_image to verify
       if (FLAGS.save_image):
-          Utils.writeImage(im[0], os.path.join('result_imgs','testing_image'+str(step)+'.jpeg')) #Printing all test images
+          Utils.writeImage(im[0], os.path.join('result_imgs','testing_image'+str(step)+'.png')) #Printing all test images
       step=step+1
       hist += Utils.get_hist(dense_prediction, label_batch)
     acc_total = np.diag(hist).sum() / hist.sum()

@@ -4,7 +4,8 @@ import numpy
 
 """ Calculate median frequency balancing for dataset, to avoid issues with unbalanced dataset. """
 
-image_path="../masterproject/aerial_img_1400/test_images/jpeg/labels"
+# image_path="../masterproject/aerial_img_1400/test_images/jpeg/labels"
+image_path="../../IR_images/tif/images"
 images = sorted(os.listdir(image_path))
 
 #Saving total number of pixels in dataset belonging to each class
@@ -28,12 +29,17 @@ for image_file in images:
 
     for x in range(0, image.size[0]):
         for y in range(0, image.size[1]):
-            if pixels[x,y] not in found_pixel_values:
-                found_pixel_values.append(pixels[x, y])
-            if pixels[x,y] == 3:
-                num_class0 = num_class0+1
-            elif pixels[x,y] == 14:
-                num_class1 = num_class1+1
+            print(x)
+            print(y)
+
+            # if pixels[x,y] not in found_pixel_values:
+            #     found_pixel_values.append(pixels[x, y])
+            # if pixels[x,y] == 3:
+            #     num_class0 = num_class0+1
+            # elif pixels[x,y] == 14:
+            #     num_class1 = num_class1+1
+
+    break #while testing
 
     freq_class0 = num_class0 / tot_pixels
     freq_class1 = num_class1 / tot_pixels

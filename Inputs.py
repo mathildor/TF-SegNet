@@ -1,9 +1,8 @@
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
-import os, sys
+import os #,sys
 import numpy as np
-import math
 
 import skimage
 import skimage.io
@@ -44,11 +43,11 @@ def dataset_reader(filename_queue): #prev name: CamVid_reader
  image_filename = filename_queue[0] #tensor of type string
  label_filename = filename_queue[1] #tensor of type string
 
- #get jpeg/png encoded image
+ #get png encoded image
  imageValue = tf.read_file(image_filename)
  labelValue = tf.read_file(label_filename)
 
- #decodes a jpeg/png image into a uint8 or uint16 tensor
+ #decodes a png image into a uint8 or uint16 tensor
  #returns a tensor of type dtype with shape [height, width, depth]
  image_bytes = tf.image.decode_png(imageValue)
  label_bytes = tf.image.decode_png(labelValue) #Labels are png, not jpeg
@@ -69,7 +68,7 @@ def datasetInputs(image_filenames, label_filenames, batch_size): #prev name: cam
 
   image, label = dataset_reader(filename_queue)
   reshaped_image = tf.cast(image, tf.float32)
-  min_fraction_of_examples_in_queue = 0.4
+  min_fraction_of_examples_in_queue = FLAGS.fraction_of_examples_in_queue
   min_queue_examples = int(FLAGS.num_examples_epoch_train *
                            min_fraction_of_examples_in_queue)
 
@@ -99,6 +98,8 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   """
   # Create a queue that shuffles the examples, and then
   # read 'batch_size' images + labels from the example queue.
+
+  #TODO: test if setting threads to higher number!
   num_preprocess_threads = 1
   if shuffle:
     images, label_batch = tf.train.shuffle_batch(
@@ -117,7 +118,7 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   # Display the training images in the visualizer.
   tf.summary.image('training_images', images)
   print('generating image and label batch:')
-  print(images) #This has 4 images, since batch size is 4?
+  print(images) #This has 4 images, since batch size is 4, or because 4 encoder/decoders?
   return images, label_batch
 
 def get_all_test_data(im_list, la_list):
