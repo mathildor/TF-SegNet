@@ -103,33 +103,26 @@ def inference(images, phase_train, batch_size, keep_prob):
 
   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), name='upsample4')
   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=FLAGS.image_h//8, out_h=FLAGS.image_w//8, scale=2, name='upsample4')
+
   deconv_4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
   conv_decode4 = conv_layer_with_bn(deconv_4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
   deconv_dropout4 = tf.nn.dropout(conv_decode4, keep_prob=keep_prob, name="dropout-deconv4")
-  print('\n -- deconv_dropout4:')
-  print(deconv_4)
-  print(conv_decode4)
-  print(deconv_dropout4)
 
   unpool_3 = upsample_with_pool_indices(values=deconv_dropout4, indices=pool3_indices, out_shape=conv3.get_shape(), name='unpool_3')
   # deconv_3 = deconv_layer(unpool_3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
   # deconv_3 = deconv_layer(deconv_dropout4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
   conv_decode3 = conv_layer_with_bn(unpool_3, [7, 7, 64, 64], phase_train, False, name="conv_decode3")
   deconv_dropout3 = tf.nn.dropout(conv_decode3, keep_prob=keep_prob, name="dropout-conv_decode3")
-  print('\n -- deconv_dropout3:')
-  # print(deconv_3)
-  print(conv_decode3)
-  print(deconv_dropout3)
 
-  # unpool_2 = upsample_with_pool_indices(values=deconv_dropout3, indices=pool2_indices, out_shape=conv2.get_shape(), name='unpool_2')
+  unpool_2 = upsample_with_pool_indices(values=deconv_dropout3, indices=pool2_indices, out_shape=conv2.get_shape(), name='unpool_2')
   # deconv_2= deconv_layer(unpool_2, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
-  deconv_2= deconv_layer(deconv_dropout3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
-  conv_decode2 = conv_layer_with_bn(deconv_2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
+  # deconv_2= deconv_layer(deconv_dropout3, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
+  conv_decode2 = conv_layer_with_bn(unpool_2, [7, 7, 64, 64], phase_train, False, name="conv_decode2")
 
-  # unpool_1 = upsample_with_pool_indices(values=conv_decode2, indices=pool1_indices, out_shape=[batch_size, FLAGS.image_h, FLAGS.image_w, 64], name='unpool_1')
+  unpool_1 = upsample_with_pool_indices(values=conv_decode2, indices=pool1_indices, out_shape=conv1.get_shape(), name='unpool_1')
   # deconv_1= deconv_layer(unpool_1, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
-  deconv_1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
-  conv_decode1 = conv_layer_with_bn(deconv_1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
+  # deconv_1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
+  conv_decode1 = conv_layer_with_bn(unpool_1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
   """ end of Decode """
 
   """ Start Classify """
@@ -214,7 +207,7 @@ def inference(images, phase_train, batch_size, keep_prob):
 #   # upsample4 = upsample_with_pool_indices(pool4, pool4_indices, pool4.get_shape(), out_w=45, out_h=60, scale=2, name='upsample4')
 #
 #
-#   #During downsampling the size is halfed each layer, here it is the opposite. Therefor dimension is divided by 8 - 4 - 2 - 1
+#   #During downsampling the size is sub-sampeled by a factor of two (halfed) each layer, here it is the opposite. Therefor dimension is divided by 8 - 4 - 2 - 1
 #
 #   """ Add more layers? """
 #   # #upsample 5
@@ -476,8 +469,6 @@ def conv_layer_with_bn(inputT, shape, train_phase, activation=True, name=None):
   """
   Used in inference() to define conv-layers with batch normalisation and ReLu (blue box in figure).
   """
-
-
   in_channel = shape[2]
   out_channel = shape[3]
   k_size = shape[0]
@@ -548,52 +539,6 @@ def get_deconv_filter(f_shape):
                          shape=weights.shape)
 
 
-def upsample_with_pool_indices_testing(value, raveled_indices, out_shape, name):
-    print("\n raveled indices: ")
-    print(raveled_indices)
-    argmax = unravel_index(raveled_indices, out_shape.as_list())
-    print(" unraveled indices")
-    print(argmax)
-    print('out_shape')
-    print(out_shape)
-    out_shape_list = out_shape.as_list()
-
-    batch_size = out_shape_list[0]
-    height = out_shape_list[1]
-    width = out_shape_list[2]
-    channels = out_shape_list[3]
-    print("height, widht, channels")
-    print(height)
-    print(width)
-    print(channels)
-
-    t1 = tf.to_int64(tf.range(channels))
-    t1 = tf.tile(t1, [((width + 1) // 2) * ((height + 1) // 2)])
-    t1 = tf.reshape(t1, shape=[-1, channels])
-    print(" t1 before transpose")
-    print(t1)
-    t1 = tf.transpose(t1, perm=[1, 0])
-    #reshape value with same values but different shape
-    t1 = tf.reshape(t1, shape=[channels, (height + 1) // 2, (width + 1) // 2, 1])
-
-    t2 = tf.squeeze(argmax)
-    t2 = tf.stack((t2[0], t2[1]), axis=0)
-    print("t2 after stacking - before transpose:")
-    print(t2)
-    t2 = tf.transpose(t2, perm=[3, 1, 2, 0]) #Kræsjer her!
-
-    t = tf.concat(3, [t2, t1])
-    indices = tf.reshape(t, shape=[((height + 1) // 2) * ((width + 1) // 2) * channels, 3])
-
-    x1 = tf.squeeze(value)
-    x1 = tf.reshape(x1, shape=[-1, channels])
-    x1 = tf.transpose(x1, perm=[1, 0])
-    values = tf.reshape(x1, shape=[-1])
-
-    delta = tf.SparseTensor(indices, values, tf.to_int64(out_shape))
-    print("\n")
-    return tf.expand_dims(tf.sparse_tensor_to_dense(tf.sparse_reorder(delta), name=name), 0)
-
 def unravel_argmax(argmax, shape): #returns a shape of (2, 1835008)
     print("\n in unravel_argmax ----")
     print('shape_:')
@@ -612,30 +557,34 @@ def unravel_argmax(argmax, shape): #returns a shape of (2, 1835008)
     return tf.stack(output_list,  axis=0)
 
 def upsample_with_pool_indices(values, indices, out_shape, name):
-  #flatten values into one dimension
-  # print("\n UPSAMPLING NEW LAYER:")
-  # print('out_shape')
-  # print(out_shape)
-  # print('values shape:')
-  # print(values.get_shape)
-  # print('\nindices shape:')
-  # print(indices.get_shape)
-  indices = tf.reshape(indices, [-1])
-  ind=tf.Print(indices, [indices])
-  ind.eval()
+  indices_flat = tf.reshape(indices, [-1])
 
-  unraveled_indices = tf.transpose(unravel_index(tf.to_int64(indices), tf.to_int64(out_shape))) #Tranpose result, because it directly gives correct indices for result matrix
-  # print("unraveled indices")
-  # print(unravel_index(tf.to_int64(indices), tf.to_int64(out_shape)))
-  # print(unraveled_indices)
+  out_shape = out_shape.as_list()
+
+  """ Unravel indices - define the operations"""
+  indices_flat_batches = tf.reshape(indices, [out_shape[0],-1]) #flatten each batch independently
+  tot_num_indices_per_batch = out_shape[1] * out_shape[2] * out_shape[3]
+  indices_per_batch = tf.to_int32(tf.divide(tot_num_indices_per_batch, 4))
+  for i in range(0, out_shape[0]): #for each batch
+    print(i)
+    indices = indices_flat_batches[i]
+    batch_dim = tf.multiply(tf.ones([indices_per_batch], tf.int64), i) #index starts with zero for every new batch
+    #Finding index as if always in batch 1 -> will still have same last three dimensions
+    first_dim = tf.to_int64(tf.divide(indices, (out_shape[2] * out_shape[3])))
+    #finding index as if in "first" matrix - will still have same two last dimensions
+    first_matr_indices = indices - (first_dim * out_shape[2] * out_shape[3])
+    second_dim = tf.to_int64(tf.divide(first_matr_indices, out_shape[3]))
+    third_dim = tf.subtract(first_matr_indices, (out_shape[3] * (first_matr_indices // out_shape[3]) ))
+    res_index = tf.transpose([batch_dim, first_dim, second_dim, third_dim])
+    if(i>0):
+      unraveled_indices = tf.concat([unraveled_indices, res_index], 0)
+    else:
+      unraveled_indices = res_index
+
   values_flattened = tf.reshape(values, [-1])
-
   result_matrix = tf.SparseTensor(tf.to_int64(unraveled_indices), tf.to_int64(values_flattened), tf.to_int64(out_shape))
-  res_matrix_dense = tf.sparse_tensor_to_dense(tf.to_float(result_matrix), name=name, validate_indices=False)
-
-  # print("RESULT:")
-  # print(res_matrix_dense)
-  return res_matrix_dense
+  res_matrix_dense = tf.sparse_tensor_to_dense(result_matrix, name="sparse_tensor", validate_indices=False)
+  return tf.to_float(res_matrix_dense)
 
 def unravel_index(indices, shape):
   with tf.name_scope('unravel_index'):

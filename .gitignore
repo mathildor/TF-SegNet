@@ -11,6 +11,7 @@ result_imgs/
 result_imgs
 result_imgs_combined
 tif_converter.py #included in areacoverimage.py
+unravel_all_chaos.py
 
 .DS_store
 

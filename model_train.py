@@ -16,23 +16,23 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_IR_set_v2/test/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_IR_set_v2/pool_indices/logs",
                            """ dir to store training ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', "20000",
+tf.app.flags.DEFINE_integer('max_steps', "5000",
                             """ max_steps for training """)
 
 #Testing
 tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999.
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-22500', #insert path to log file: tmp/logs/model.ckpt-19999.
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-3000', #insert path to log file: tmp/logs/model.ckpt-19999.
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
 
 #Finetunings
-tf.app.flags.DEFINE_boolean('finetune', True,
+tf.app.flags.DEFINE_boolean('finetune', False,
                            """ Whether to finetune or not """)
-tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-4999',
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-4500',
                            """ Path to the checkpoint file to finetune from """)
 
 
@@ -72,7 +72,7 @@ tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not b
                             """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "5",
+tf.app.flags.DEFINE_integer('batch_size', "8",
                             """ batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
@@ -110,6 +110,8 @@ def train(is_finetune=False):
 
     #Make images into correct type(float32/float16 el.), create shuffeled batches ++
     images, labels = Inputs.datasetInputs(image_filenames, label_filenames, FLAGS.batch_size)
+    print('images - need to know the shape of it:')
+    print(images)
     val_images, val_labels = Inputs.datasetInputs(val_image_filenames, val_label_filenames, FLAGS.batch_size)
 
     train_data_node = tf.placeholder(tf.float32, shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 3])
