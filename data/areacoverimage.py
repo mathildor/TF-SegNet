@@ -38,32 +38,32 @@ cat_image_dim = 512 #prev 27
 
 #Information about where areas can be found
 wms_areas = [
-    # {
-    #     'name':"Farsund-2014",
-    #     'rgb_wms_url': wms_url_std,
-    #     'ir_wms_url': wms_url_hist
-    # },
-    # {
-    #     'name':"Lorenskog-2013",
-    #     'rgb_wms_url': wms_url_hist,
-    #     'ir_wms_url': wms_url_hist
-    # },
-    # {
-    #     'name': "Skedsmo-2013",
-    #     'rgb_wms_url': wms_url_hist,
-    #     'ir_wms_url': wms_url_hist
-    # },
-    # {
-    #     'name': "Ralingen-2013",
-    #     'rgb_wms_url': wms_url_std,
-    #     'ir_wms_url': wms_url_hist
-    # }
-    # ,
-    # {
-    #     'name': "Nittedal-2013", #Up to image 6878
-    #     'rgb_wms_url': wms_url_hist,
-    #     'ir_wms_url': wms_url_hist
-    # },
+    {
+        'name':"Farsund-2014",
+        'rgb_wms_url': wms_url_std,
+        'ir_wms_url': wms_url_hist
+    },
+    {
+        'name':"Lorenskog-2013",
+        'rgb_wms_url': wms_url_hist,
+        'ir_wms_url': wms_url_hist
+    },
+    {
+        'name': "Skedsmo-2013",
+        'rgb_wms_url': wms_url_hist,
+        'ir_wms_url': wms_url_hist
+    },
+    {
+        'name': "Ralingen-2013",
+        'rgb_wms_url': wms_url_std,
+        'ir_wms_url': wms_url_hist
+    }
+    ,
+    {
+        'name': "Nittedal-2013", #Up to image 6878
+        'rgb_wms_url': wms_url_hist,
+        'ir_wms_url': wms_url_hist
+    },
     {
         'name': "Fet-2013",
         'rgb_wms_url': wms_url_hist,
@@ -77,8 +77,9 @@ wms_areas = [
 ]
 
 datasetName="IR_RGB_0.1res/"
-start_img_nr = 6900 #Change if creating datasets seperately that should later be merged
+start_img_nr = 0 #Change if creating datasets seperately that should later be merged
 
+""" Chose what to parts of the dataset to create """
 #TIF
 create_IR_images = False
 create_RGB_images = False
@@ -91,9 +92,6 @@ split_RGB_dataset = True
 
 
 """ ------------------------------------------------------- """
-
-#wms_area_name = #"Elverum-og-Vaaler-IR-2016" #"Asker-og-Barum-IR-2012" #"Follo-IR-2013"
-#db_name = "elverum_vaaler"#"asker_berum"#"Follo", "map_files" = First area, østfold, "ir_shape_area" = Second area, three areas that also has IR images
 
 # Setup working spatial reference
 srs_epsg_nr = 25832
@@ -192,15 +190,15 @@ def loadWMS(img_file, url, x_min, y_min, x_max, y_max, x_sz, y_sz, srs, layers, 
     if styles:
         params['styles'] = styles
 
-    # Do request
-    for i in range(10):
-        try:
-            req = requests.get(url, stream=True, params=params, headers=hdr, timeout=None)
-            break
-        except requests.exceptions.ConnectionError as err:
-            print("Error from request:")
-            print(err)
-            time.sleep(10)
+        # Do request
+        for i in range(10):
+            try:
+                req = requests.get(url, stream=True, params=params, headers=hdr, timeout=None)
+                break
+            except requests.exceptions.ConnectionError as err:
+                print("Error from request:")
+                print(err)
+                time.sleep(10)
     else:
         print("Unable to fetch image from: " + url + " with parameters: " + params)
 
