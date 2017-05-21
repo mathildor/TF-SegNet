@@ -16,15 +16,15 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_IR_set_v2/pool_indices/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_dataBalance/0.5-1/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch8/logs",
                            """ dir to store training ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', "5000",
+tf.app.flags.DEFINE_integer('max_steps', "10000",
                             """ max_steps for training """)
 
 #Testing
 tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999.
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-3000', #insert path to log file: tmp/logs/model.ckpt-19999.
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_batch5/logs/model.ckpt-28500', #insert path to log file: tmp/logs/model.ckpt-19999.
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
@@ -32,7 +32,7 @@ tf.app.flags.DEFINE_boolean('save_image', True,
 #Finetunings
 tf.app.flags.DEFINE_boolean('finetune', False,
                            """ Whether to finetune or not """)
-tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_IR_set_v2/dropout/logs/model.ckpt-4500',
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_batch5/logs/model.ckpt-28500',
                            """ Path to the checkpoint file to finetune from """)
 
 
@@ -45,7 +45,6 @@ tf.app.flags.DEFINE_integer('image_w', "512",
 tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
-
 #Directories
 # tf.app.flags.DEFINE_string('image_dir', "../aerial_img_4600/train_images/png",
 #                            """ path to training images """)
@@ -53,34 +52,34 @@ tf.app.flags.DEFINE_integer('image_c', "3",
 #                            """ path to test image """)
 # tf.app.flags.DEFINE_string('val_dir', "../aerial_img_4600/val_images/png",
 #                            """ path to val image """)
-tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/train_images",
+tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/train_images",
                            """ path to training images """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/test_images",
+tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/test_images",
                            """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset_v2/val_images",
+tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/val_images",
                            """ path to val image """)
 
 #Dataset size. #Epoch = one pass of the whole dataset.
-tf.app.flags.DEFINE_integer('num_examples_epoch_train', "3720",
+tf.app.flags.DEFINE_integer('num_examples_epoch_train', "2475",#"3720",
                            """ num examples per epoch for train """)
-tf.app.flags.DEFINE_integer('num_examples_epoch_test', "460",
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "306",#"460",
                            """ num examples per epoch for test """)
-tf.app.flags.DEFINE_float('fraction_of_examples_in_queue', "0.4",
+tf.app.flags.DEFINE_float('fraction_of_examples_in_queue', "0.3",
                            """ Fraction of examples from datasat to put in queue. Large datasets need smaller value, otherwise memory gets full. """)
 
 tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
                             """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "8",
-                            """ batch_size """)
+tf.app.flags.DEFINE_integer('batch_size', "4",
+                            """train batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "6",
+tf.app.flags.DEFINE_integer('eval_batch_size', "4",
                             """ Eval batch_size """)
 
 
-tf.app.flags.DEFINE_float('learning_rate', "1e-3", #Figure out what is best for AdamOptimizer!
+tf.app.flags.DEFINE_float('learning_rate', "0.1",#org 1e-3  #Figure out what is best for AdamOptimizer!
                            """ initial lr """)
 
 tf.app.flags.DEFINE_float('moving_average_decay', "0.9999", #https://www.tensorflow.org/versions/r0.12/api_docs/python/train/moving_averages
@@ -110,8 +109,6 @@ def train(is_finetune=False):
 
     #Make images into correct type(float32/float16 el.), create shuffeled batches ++
     images, labels = Inputs.datasetInputs(image_filenames, label_filenames, FLAGS.batch_size)
-    print('images - need to know the shape of it:')
-    print(images)
     val_images, val_labels = Inputs.datasetInputs(val_image_filenames, val_label_filenames, FLAGS.batch_size)
 
     train_data_node = tf.placeholder(tf.float32, shape=[FLAGS.batch_size, FLAGS.image_h, FLAGS.image_w, 3])
@@ -121,14 +118,13 @@ def train(is_finetune=False):
 
     # Build a Graph that computes the logits predictions from the inference model.
     logits = model.inference(train_data_node, phase_train, FLAGS.batch_size, keep_probability) #tensor, nothing calculated yet
-    print("\n -- After logts init!")
 
     #Calculate loss:
     loss = model.cal_loss(logits, train_labels_node)
     # Build a Graph that trains the model with one batch of examples and updates the model parameters.
     train_op = model.train(loss, global_step)
     # Create a saver.
-    saver = tf.train.Saver(tf.global_variables())
+    saver = tf.train.Saver(tf.global_variables(), max_to_keep = 0)
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.summary.merge_all()
 
@@ -169,6 +165,7 @@ def train(is_finetune=False):
         _, loss_value = sess.run(fetches=[train_op, loss], feed_dict=feed_dict)
         duration = time.time() - start_time
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN - weights have "exploded"'
+
 
         if step % 10 == 0:
           num_examples_per_step = FLAGS.batch_size
