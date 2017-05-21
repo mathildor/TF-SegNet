@@ -16,9 +16,9 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_dataBalance/0.5-1/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch8/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/train_batch_5/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch8/logs",
                            """ dir to store training ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', "10000",
+tf.app.flags.DEFINE_integer('max_steps', "5000",
                             """ max_steps for training """)
 
 #Testing
@@ -46,12 +46,6 @@ tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
 #Directories
-# tf.app.flags.DEFINE_string('image_dir', "../aerial_img_4600/train_images/png",
-#                            """ path to training images """)
-# tf.app.flags.DEFINE_string('test_dir', "../aerial_img_4600/test_images/png",
-#                            """ path to test image """)
-# tf.app.flags.DEFINE_string('val_dir', "../aerial_img_4600/val_images/png",
-#                            """ path to val image """)
 tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/train_images",
                            """ path to training images """)
 tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/test_images",
@@ -71,14 +65,20 @@ tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not b
                             """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "4",
+tf.app.flags.DEFINE_integer('batch_size', "5",
                             """train batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
-tf.app.flags.DEFINE_integer('eval_batch_size', "4",
+tf.app.flags.DEFINE_integer('eval_batch_size', "8",
                             """ Eval batch_size """)
 
+tf.app.flags.DEFINE_float('balance_weight_0', 0.8,
+                            """ Define the dataset balance weight for class 0 - Not building """)
+tf.app.flags.DEFINE_float('balance_weight_1', 1.1,
+                            """ Define the dataset balance weight for class 1 - Building """)
 
+tf.app.flags.DEFINE_string('conv_init', "msra", # msra / xavier / var_scale
+                           """ initializer for the convolutional layers """)
 tf.app.flags.DEFINE_float('learning_rate', "0.1",#org 1e-3  #Figure out what is best for AdamOptimizer!
                            """ initial lr """)
 
