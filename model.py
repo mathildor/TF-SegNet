@@ -90,7 +90,7 @@ def inference(images, phase_train, batch_size, keep_prob):
 
   """ End of encoder """
 
-  """ start upsample """
+  """ Start decoder """
 
   upsample4 = deconv_layer(pool4, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
   conv_decode4 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, False, name="conv_decode4")
@@ -103,15 +103,29 @@ def inference(images, phase_train, batch_size, keep_prob):
 
   upsample1= deconv_layer(conv_decode2, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
   conv_decode1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, False, name="conv_decode1")
-  """ end of Decode """
+  """ End of decoder """
 
   """ Start Classify """
   # output predicted class number (2)
   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[1, 1, 64, FLAGS.num_class],
-                                         initializer=msra_initializer(1, 64),
-                                         wd=0.0005)
+    shape=[1, 1, 64, FLAGS.num_class]
+    if(FLAGS.conv_init == "msra"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=msra_initializer(1, 64),
+                                           wd=0.0005)
+    elif(FLAGS.conv_init == "var_scale"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           #initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           initializer=tf.contrib.layers.variance_scaling_initializer(), #orthogonal_initializer()
+                                           wd=None)
+    elif(FLAGS.conv_init == "xavier"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           wd=None)
+
     conv = tf.nn.conv2d(conv_decode1, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
@@ -210,12 +224,12 @@ def inference_full_layers_dropout(images, phase_train, batch_size, keep_prob):
   return conv_classifier
 
 
-#inference_full_layers
-def inference_full_layers(images, phase_train, batch_size, keep_prob):
+#inference-extended
+def inference_extended(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
-      The arcitecure has 4(5) different layer sizes, each appear twice
+      The arcitecure has 5 different layer sizes, each appear twice
       - once in the encoder and once in the decoder. Each "block" of layers (with the sames size)
       are of different types. For example block one has two conv-batch-relu layers and one pooling layer.
 
@@ -283,12 +297,24 @@ def inference_full_layers(images, phase_train, batch_size, keep_prob):
   """ Start Classify """
   # output predicted class number (2)
   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[1, 1, 64, FLAGS.num_class],
-                                        #  initializer=msra_initializer(1, 64),
-                                        #  initializer=tf.contrib.layers.xavier_initializer(1, 64),
-                                         initializer=tf.contrib.layers.variance_scaling_initializer(),
-                                         wd=0.0005)
+    shape=[1, 1, 64, FLAGS.num_class]
+    if(FLAGS.conv_init == "msra"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=msra_initializer(1, 64),
+                                           wd=0.0005)
+    elif(FLAGS.conv_init == "var_scale"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           #initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           initializer=tf.contrib.layers.variance_scaling_initializer(), #orthogonal_initializer()
+                                           wd=None)
+    elif(FLAGS.conv_init == "xavier"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           wd=None)
+
     conv = tf.nn.conv2d(conv_decode1_2, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias
@@ -420,10 +446,7 @@ def weighted_loss(logits, labels, num_classes, head=None): #None is default valu
 
 def train(total_loss, global_step):
 
-  """ Training the SegNet model
-    This train method is only for building the graph - defines the part of the graph
-    that is needed for training. The actual training is done in train() in model_train.py.
-
+  """ Training the model
     Create an optimizer and apply to all trainable variables.
     Add moving average for all trainable variables??
 
@@ -433,26 +456,41 @@ def train(total_loss, global_step):
         processed.
     Returns:
       train_op: op for training.
-
   """
 
   """ fixed learning rate """
-  lr = FLAGS.learning_rate #Setting constant learning rate as it is most common with adam optimizer.
-
-  tf.summary.scalar('learning_rate', lr)
+  tf.summary.scalar('learning_rate', FLAGS.learning_rate)
 
   # Generate moving averages of all losses and associated summaries.
   loss_averages_op = _add_loss_summaries(total_loss)
 
-  # Compute gradients.
+  # Compute gradients:
   with tf.control_dependencies([loss_averages_op]):
-    # opt = tf.train.AdamOptimizer(lr)
-    opt = tf.train.GradientDescentOptimizer(lr)
+    if(FLAGS.optimizer == "SGD"):
+      print("Running with SGD optimizer")
+      opt = tf.train.GradientDescentOptimizer(
+        0.1)
+    elif(FLAGS.optimizer == "adam"):
+      print("Running with adam optimizer")
+      opt = tf.train.AdamOptimizer(
+        0.001)
+    elif(FLAGS.optimizer == "adagrad"):
+      print("Running with adagrad optimizer")
+      opt = tf.train.AdagradOptimizer(
+          0.01)
+    elif(FLAGS.optimizer == "momentum"):
+      print("Running with momentum optimizer")
+      opt = tf.train.MomentumOptimizer(
+        FLAGS.learning_rate,
+        momentum = 0.99,
+        name = 'Momentum')
+    else:
+      raise ValueError("optimizer was not recognized.")
+
     print('total_loss')
     print(total_loss)
     grads = opt.compute_gradients(total_loss)
 
-  #Apply gradients.
   apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
   # Add histograms for trainable variables.
@@ -479,8 +517,8 @@ def train(total_loss, global_step):
 
 def msra_initializer(kl, dl):
     """
-    kl for kernel size, dl for filter number
-    Why called msra????
+    kl for kernel size
+    dl for filter number
 
     Truncated normal distribution
     """
@@ -597,14 +635,14 @@ def conv_layer_with_bn(inputT, shape, train_phase, activation=True, name=None):
       kernel = _variable_with_weight_decay('weights',
                                            shape=shape,
                                            initializer=msra_initializer(k_size, in_channel), #orthogonal_initializer()
-                                           wd=None)
-    elif(FLAGS.conv_init == "var_scale")
+                                           wd=0.0005)
+    elif(FLAGS.conv_init == "var_scale"):
       kernel = _variable_with_weight_decay('weights',
                                            shape=shape,
                                            #initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
                                            initializer=tf.contrib.layers.variance_scaling_initializer(), #orthogonal_initializer()
                                            wd=None)
-    elif(FLAGS.conv_init == "xavier")
+    elif(FLAGS.conv_init == "xavier"):
       kernel = _variable_with_weight_decay('weights',
                                            shape=shape,
                                            initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()

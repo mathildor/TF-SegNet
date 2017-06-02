@@ -16,27 +16,27 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/train_batch_5/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch8/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/optimizer_initializer/adagrad_varScale/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch5/logs",
                            """ dir to store training ckpt """)
-tf.app.flags.DEFINE_integer('max_steps', "5000",
+tf.app.flags.DEFINE_integer('max_steps', "5001",
                             """ max_steps for training """)
 
 #Testing
 tf.app.flags.DEFINE_boolean('testing', False, #insert path to log file: tmp/logs/model.ckpt-19999.
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_batch5/logs/model.ckpt-28500', #insert path to log file: tmp/logs/model.ckpt-19999.
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_RGB_set/initializers/xavier-adagrad/logs/model.ckpt-5000', #insert path to log file: tmp/logs/model.ckpt-19999.
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
 
 #Finetunings
-tf.app.flags.DEFINE_boolean('finetune', False,
+tf.app.flags.DEFINE_boolean('finetune', True,
                            """ Whether to finetune or not """)
-tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_RGB_set/extended_model/varScaleInit_sgd_0.1lr_batch5/logs/model.ckpt-28500',
+tf.app.flags.DEFINE_string('finetune_dir', 'tmp/IR_RGB_0.1res_RGB_set/optimizer_initializer/adagrad_varScale/logs/model.ckpt-24000',
                            """ Path to the checkpoint file to finetune from """)
 
 
-"""DATASET SPECIFIC PARAMETERS"""
+""" DATASET SPECIFIC PARAMETERS """
 #Image size
 tf.app.flags.DEFINE_integer('image_h', "512",
                             """ image height """)
@@ -56,17 +56,17 @@ tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_imag
 #Dataset size. #Epoch = one pass of the whole dataset.
 tf.app.flags.DEFINE_integer('num_examples_epoch_train', "2475",#"3720",
                            """ num examples per epoch for train """)
-tf.app.flags.DEFINE_integer('num_examples_epoch_test', "306",#"460",
+tf.app.flags.DEFINE_integer('num_examples_epoch_test', "308",#"460",
                            """ num examples per epoch for test """)
-tf.app.flags.DEFINE_float('fraction_of_examples_in_queue', "0.3",
+tf.app.flags.DEFINE_float('fraction_of_examples_in_queue', "0.4",
                            """ Fraction of examples from datasat to put in queue. Large datasets need smaller value, otherwise memory gets full. """)
 
 tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not building"
                             """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "5",
-                            """train batch_size """)
+tf.app.flags.DEFINE_integer('batch_size', "8",
+                            """ train batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
 tf.app.flags.DEFINE_integer('eval_batch_size', "8",
@@ -77,9 +77,11 @@ tf.app.flags.DEFINE_float('balance_weight_0', 0.8,
 tf.app.flags.DEFINE_float('balance_weight_1', 1.1,
                             """ Define the dataset balance weight for class 1 - Building """)
 
-tf.app.flags.DEFINE_string('conv_init', "msra", # msra / xavier / var_scale
-                           """ initializer for the convolutional layers """)
-tf.app.flags.DEFINE_float('learning_rate', "0.1",#org 1e-3  #Figure out what is best for AdamOptimizer!
+tf.app.flags.DEFINE_string('conv_init', 'var_scale', # msra / xavier / var_scale
+                           """ Initializer for the convolutional layers. One of "msra", "xavier", "var_scale".  """)
+tf.app.flags.DEFINE_string('optimizer', "adagrad",
+                           """ Optimizer for training. One of: "adam", "SGD", "momentum", "adagrad". """)
+tf.app.flags.DEFINE_float('learning_rate', "1e-3",#OBS! Some lr's are set in functions instead, specifically for each optimizer.
                            """ initial lr """)
 
 tf.app.flags.DEFINE_float('moving_average_decay', "0.9999", #https://www.tensorflow.org/versions/r0.12/api_docs/python/train/moving_averages
@@ -276,6 +278,7 @@ def test():
     acc_total = np.diag(hist).sum() / hist.sum()
     iu = np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
     print("acc: ", acc_total)
+    print("IU: ", iu)
     print("mean IU: ", np.nanmean(iu))
 
 
