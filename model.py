@@ -152,59 +152,59 @@ def inference_dropout(images, phase_train, batch_size, keep_prob):
   """
   conv1_1 = conv_layer_with_bn(images, [7, 7, images.get_shape().as_list()[3], 64], phase_train, name="conv1_1")
   conv1_2 = conv_layer_with_bn(conv1_1, [7, 7, 64, 64], phase_train, name="conv1_2")
-  dropout1 = tf.nn.dropout(conv1_2, keep_prob=keep_prob, name="dropout1")
+  dropout1 = tf.layers.dropout(conv1_2, rate=(1-keep_prob), training=phase_train, name="dropout1")
   pool1, pool1_indices = tf.nn.max_pool_with_argmax(dropout1, ksize=[1, 2, 2, 1],
                                                     strides=[1, 2, 2, 1], padding='SAME', name='pool1')
   conv2_1 = conv_layer_with_bn(pool1, [7, 7, 64, 64], phase_train, name="conv2_1")
   conv2_2 = conv_layer_with_bn(conv2_1, [7, 7, 64, 64], phase_train, name="conv2_2")
-  dropout2 = tf.nn.dropout(conv2_2, keep_prob=keep_prob, name="dropout2")
+  dropout2 = tf.layers.dropout(conv2_2, rate=(1-keep_prob), training=phase_train, name="dropout2")
   pool2, pool2_indices = tf.nn.max_pool_with_argmax(dropout2, ksize=[1, 2, 2, 1],
                                                     strides=[1, 2, 2, 1], padding='SAME', name='pool2')
   conv3_1 = conv_layer_with_bn(pool2, [7, 7, 64, 64], phase_train, name="conv3_1")
   conv3_2 = conv_layer_with_bn(conv3_1, [7, 7, 64, 64], phase_train, name="conv3_2")
   conv3_3 = conv_layer_with_bn(conv3_2, [7, 7, 64, 64], phase_train, name="conv3_3")
-  dropout3 = tf.nn.dropout(conv3_3, keep_prob=keep_prob, name="dropout3")
+  dropout3 = tf.layers.dropout(conv3_3, rate=(1-keep_prob), training=phase_train, name="dropout3")
   pool3, pool3_indices = tf.nn.max_pool_with_argmax(dropout3, ksize=[1, 2, 2, 1],
                                                     strides=[1, 2, 2, 1], padding='SAME', name='pool3')
   conv4_1 = conv_layer_with_bn(pool3, [7, 7, 64, 64], phase_train, name="conv4_1")
   conv4_2 = conv_layer_with_bn(conv4_1, [7, 7, 64, 64], phase_train, name="conv4_2")
   conv4_3 = conv_layer_with_bn(conv4_2, [7, 7, 64, 64], phase_train, name="conv4_3")
-  dropout4 = tf.nn.dropout(conv4_3, keep_prob=keep_prob, name="dropout4")
+  dropout4 = tf.layers.dropout(conv4_3, rate=(1-keep_prob), training=phase_train, name="dropout4")
   pool4, pool4_indices = tf.nn.max_pool_with_argmax(dropout4, ksize=[1, 2, 2, 1],
                                                     strides=[1, 2, 2, 1], padding='SAME', name='pool4')
   conv5_1 = conv_layer_with_bn(pool4, [7, 7, 64, 64], phase_train, name="conv5_1")
   conv5_2 = conv_layer_with_bn(conv5_1, [7, 7, 64, 64], phase_train, name="conv5_2")
   conv5_3 = conv_layer_with_bn(conv5_2, [7, 7, 64, 64], phase_train, name="conv5_3")
-  dropout5 = tf.nn.dropout(conv5_3, keep_prob=keep_prob, name="dropout5")
+  dropout5 = tf.layers.dropout(conv5_3, rate=(1-keep_prob), training=phase_train, name="dropout5")
   pool5, pool5_indices = tf.nn.max_pool_with_argmax(dropout5, ksize=[1, 2, 2, 1],
                                                     strides=[1, 2, 2, 1], padding='SAME', name='pool5')
   """ End of encoder """
 
   """ Start decoder """
-  dropout5_decode = tf.nn.dropout(pool5, keep_prob=keep_prob, name="dropout5_decode")
+  dropout5_decode = tf.layers.dropout(pool5, rate=(1-keep_prob), training=phase_train, name="dropout5_decode")
   upsample5 = deconv_layer(dropout5_decode, [2, 2, 64, 64], [batch_size, FLAGS.image_h//16, FLAGS.image_w//16, 64], 2, "up5")
   conv_decode5_1 = conv_layer_with_bn(upsample5, [7, 7, 64, 64], phase_train, True, name="conv_decode5_1")
   conv_decode5_2 = conv_layer_with_bn(conv_decode5_1, [7, 7, 64, 64], phase_train, True, name="conv_decode5_2")
   conv_decode5_3 = conv_layer_with_bn(conv_decode5_2, [7, 7, 64, 64], phase_train, True, name="conv_decode5_3")
 
-  dropout4_decode = tf.nn.dropout(conv_decode5_3, keep_prob=keep_prob, name="dropout4_decode")
+  dropout4_decode = tf.layers.dropout(conv_decode5_3, rate=(1-keep_prob), training=phase_train, name="dropout4_decode")
   upsample4 = deconv_layer(dropout4_decode, [2, 2, 64, 64], [batch_size, FLAGS.image_h//8, FLAGS.image_w//8, 64], 2, "up4")
   conv_decode4_1 = conv_layer_with_bn(upsample4, [7, 7, 64, 64], phase_train, True, name="conv_decode4_1")
   conv_decode4_2 = conv_layer_with_bn(conv_decode4_1, [7, 7, 64, 64], phase_train, True, name="conv_decode4_2")
   conv_decode4_3 = conv_layer_with_bn(conv_decode4_2, [7, 7, 64, 64], phase_train, True, name="conv_decode4_3")
 
-  dropout3_decode = tf.nn.dropout(conv_decode4_3, keep_prob=keep_prob, name="dropout3_decode")
+  dropout3_decode = tf.layers.dropout(conv_decode4_3, rate=(1-keep_prob), training=phase_train, name="dropout3_decode")
   upsample3 = deconv_layer(dropout3_decode, [2, 2, 64, 64], [batch_size, FLAGS.image_h//4, FLAGS.image_w//4, 64], 2, "up3")
   conv_decode3_1 = conv_layer_with_bn(upsample3, [7, 7, 64, 64], phase_train, True, name="conv_decode3_1")
   conv_decode3_2 = conv_layer_with_bn(conv_decode3_1, [7, 7, 64, 64], phase_train, True, name="conv_decode3_2")
   conv_decode3_3 = conv_layer_with_bn(conv_decode3_2, [7, 7, 64, 64], phase_train, True, name="conv_decode3_3")
 
-  dropout2_decode = tf.nn.dropout(conv_decode3_3, keep_prob=keep_prob, name="dropout2_decode")
+  dropout2_decode = tf.layers.dropout(conv_decode3_3, rate=(1-keep_prob), training=phase_train, name="dropout2_decode")
   upsample2= deconv_layer(dropout2_decode, [2, 2, 64, 64], [batch_size, FLAGS.image_h//2, FLAGS.image_w//2, 64], 2, "up2")
   conv_decode2_1 = conv_layer_with_bn(upsample2, [7, 7, 64, 64], phase_train, True, name="conv_decode2_1")
   conv_decode2_2 = conv_layer_with_bn(conv_decode2_1, [7, 7, 64, 64], phase_train, True, name="conv_decode2_2")
 
-  dropout1_decode = tf.nn.dropout(conv_decode2_2, keep_prob=keep_prob, name="dropout1_deconv")
+  dropout1_decode = tf.layers.dropout(conv_decode2_2, rate=(1-keep_prob), training=phase_train, name="dropout1_deconv")
   upsample1 = deconv_layer(dropout1_decode, [2, 2, 64, 64], [batch_size, FLAGS.image_h, FLAGS.image_w, 64], 2, "up1")
   conv_decode1_1 = conv_layer_with_bn(upsample1, [7, 7, 64, 64], phase_train, True, name="conv_decode1_1")
   conv_decode1_2 = conv_layer_with_bn(conv_decode1_1, [7, 7, 64, 64], phase_train, True, name="conv_decode1_2")
