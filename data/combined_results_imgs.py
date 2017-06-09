@@ -7,11 +7,11 @@ import numpy
 
 """
 
-# image_path = "../../IR_images/combined_dataset/test_images/for_combined_images/"
+# image_path = "../../IR_images/combined_dataset/"
 # label_path = "../result_imgs/for_combined_images/"
 # image_path = "../../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/test_images/images" #Input images
-image_path = "../../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/test_images/labels" #Ground truth
-label_path = "../result_imgs/"
+image_path = "../../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/test_images/images/" #Ground truth
+label_path = "../result_imgs_IR/"
 outpath = "../result_imgs_combined/"
 
 images = sorted(os.listdir(image_path))
@@ -32,7 +32,12 @@ for image_name in images:
             label = Image.open(os.path.join(label_path, label_name))
             print("same number!")
             image = Image.open(os.path.join(image_path, image_name))
-            Image.blend(label, image, .7).save(os.path.join(outpath, label_name+"_label"))
+            # image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+            print(label)
+            print(image)
+            blend_img = Image.blend(label, image, .7)
+            blend_img.save(os.path.join(outpath, image_name))
+            # Image.blend(label, image, .7).save(os.path.join(outpath, label_name+"_label"))
     processed +=1
 
 

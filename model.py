@@ -44,6 +44,8 @@ def _MaxPoolWithArgmaxGrad(op, grad, unused_argmax_grad):
                                    padding=op.get_attr("padding"),
                                    data_format='NHWC')
 
+#tf.control_flow_ops = tf #fix for dropout?
+
 #inference_basic
 def inference(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
@@ -133,7 +135,7 @@ def inference(images, phase_train, batch_size, keep_prob):
   return conv_classifier
 
 #inference_full_layers_dropout
-def inference_full_layers_dropout(images, phase_train, batch_size, keep_prob):
+def inference_dropout(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -211,12 +213,24 @@ def inference_full_layers_dropout(images, phase_train, batch_size, keep_prob):
   """ Start Classify """
   # output predicted class number (2)
   with tf.variable_scope('conv_classifier') as scope: #all variables prefixed with "conv_classifier/"
-    kernel = _variable_with_weight_decay('weights',
-                                         shape=[1, 1, 64, FLAGS.num_class],
-                                        #  initializer=msra_initializer(1, 64),
-                                        #  initializer=tf.contrib.layers.xavier_initializer(1, 64),
-                                         initializer=tf.contrib.layers.variance_scaling_initializer(),
-                                         wd=0.0005)
+    shape=[1, 1, 64, FLAGS.num_class]
+    if(FLAGS.conv_init == "msra"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=msra_initializer(1, 64),
+                                           wd=0.0005)
+    elif(FLAGS.conv_init == "var_scale"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           #initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           initializer=tf.contrib.layers.variance_scaling_initializer(), #orthogonal_initializer()
+                                           wd=None)
+    elif(FLAGS.conv_init == "xavier"):
+      kernel = _variable_with_weight_decay('weights',
+                                           shape=shape,
+                                           initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
+                                           wd=None)
+
     conv = tf.nn.conv2d(conv_decode1_2, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [FLAGS.num_class], tf.constant_initializer(0.0))
     conv_classifier = tf.nn.bias_add(conv, biases, name=scope.name) #tf.nn.bias_add is an activation function. Simple add that specifies 1-D tensor bias

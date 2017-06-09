@@ -10,6 +10,11 @@ tmp6
 result_imgs/
 result_imgs
 result_imgs_combined
+result_imgs_IR/
+result_imgs_combined_IR/
+result_imgs_combined_RGB/
+result_imgs_rgb/
+
 tif_converter.py #included in areacoverimage.py
 unravel_all_chaos.py
 
