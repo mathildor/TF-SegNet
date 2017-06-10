@@ -47,7 +47,7 @@ def _MaxPoolWithArgmaxGrad(op, grad, unused_argmax_grad):
 #tf.control_flow_ops = tf #fix for dropout?
 
 #inference_basic
-def inference(images, phase_train, batch_size, keep_prob):
+def inference_basic(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -135,7 +135,7 @@ def inference(images, phase_train, batch_size, keep_prob):
   return conv_classifier
 
 #inference_full_layers_dropout
-def inference_dropout(images, phase_train, batch_size, keep_prob):
+def inference(images, phase_train, batch_size, keep_prob):
   """ Inference builds the graph as far as is required for running the network forward
       to make predictions.
 
@@ -222,7 +222,6 @@ def inference_dropout(images, phase_train, batch_size, keep_prob):
     elif(FLAGS.conv_init == "var_scale"):
       kernel = _variable_with_weight_decay('weights',
                                            shape=shape,
-                                           #initializer=tf.contrib.layers.xavier_initializer(), #orthogonal_initializer()
                                            initializer=tf.contrib.layers.variance_scaling_initializer(), #orthogonal_initializer()
                                            wd=None)
     elif(FLAGS.conv_init == "xavier"):

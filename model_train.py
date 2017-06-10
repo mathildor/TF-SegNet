@@ -16,7 +16,7 @@ FLAGS = tf.app.flags.FLAGS
 """ AFFECTS HOW CODE RUNS"""
 
 #Training
-tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_IR_set/initializers/xavier_adagrad/logs",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch5/logs",
+tf.app.flags.DEFINE_string('log_dir', "tmp/IR_RGB_0.1res_RGB_set/dropout2/varScale-adagrad/logs/",#"tmp/IR_RGB_0.1res_IR_set_v2_cleaned/basic_batch5/logs",
                            """ dir to store training ckpt """)
 tf.app.flags.DEFINE_integer('max_steps', "24001",
                             """ max_steps for training """)
@@ -24,7 +24,7 @@ tf.app.flags.DEFINE_integer('max_steps', "24001",
 #Testing
 tf.app.flags.DEFINE_boolean('testing', True, #insert path to log file: tmp/logs/model.ckpt-19999.
                             """ Whether to run test or not """)
-tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_IR_set/initializers/xavier_adagrad/logs/model.ckpt-24000', #insert path to log file: tmp/logs/model.ckpt-19999.
+tf.app.flags.DEFINE_string('model_ckpt_dir', 'tmp/IR_RGB_0.1res_RGB_set/dropout2/varScale-adagrad/logs/model.ckpt-1500', #insert path to log file: tmp/logs/model.ckpt-19999.
                            """ checkpoint file for model to use for testing """)
 tf.app.flags.DEFINE_boolean('save_image', True,
                             """ Whether to save predicted image """)
@@ -46,11 +46,11 @@ tf.app.flags.DEFINE_integer('image_c', "3",
                             """ number image channels (RGB) (the depth) """)
 
 #Directories
-tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/train_images",
+tf.app.flags.DEFINE_string('image_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/train_images",
                            """ path to training images """)
-tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/test_images",
+tf.app.flags.DEFINE_string('test_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/test_images",
                            """ path to test image """)
-tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/IR_images/combined_dataset/val_images",
+tf.app.flags.DEFINE_string('val_dir', "../aerial_datasets/IR_RGB_0.1res/RGB_images/combined_dataset/val_images",
                            """ path to val image """)
 
 #Dataset size. #Epoch = one pass of the whole dataset.
@@ -65,7 +65,7 @@ tf.app.flags.DEFINE_integer('num_class', "2", #classes are "Building" and "Not b
                             """ total class number """)
 
 """ TRAINING PARAMETERS"""
-tf.app.flags.DEFINE_integer('batch_size', "8",
+tf.app.flags.DEFINE_integer('batch_size', "3",
                             """ train batch_size """)
 tf.app.flags.DEFINE_integer('test_batch_size', "1",
                             """ batch_size for training """)
@@ -77,7 +77,7 @@ tf.app.flags.DEFINE_float('balance_weight_0', 0.8,
 tf.app.flags.DEFINE_float('balance_weight_1', 1.1,
                             """ Define the dataset balance weight for class 1 - Building """)
 
-tf.app.flags.DEFINE_string('conv_init', 'xavier', # msra / xavier / var_scale
+tf.app.flags.DEFINE_string('conv_init', 'var_scale', # msra / xavier / var_scale
                            """ Initializer for the convolutional layers. One of "msra", "xavier", "var_scale".  """)
 tf.app.flags.DEFINE_string('optimizer', "adagrad",
                            """ Optimizer for training. One of: "adam", "SGD", "momentum", "adagrad". """)
