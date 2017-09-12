@@ -8,7 +8,7 @@ import numpy
 numpy.set_printoptions(threshold=numpy.nan)
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-import rasterio #To vectorize a raster
+#import rasterio #To vectorize a raster
 # import gdal
 
 label = "C:\\Users\mators\\Documents\\Master-data\\test-set\\label.png" #Original true label
