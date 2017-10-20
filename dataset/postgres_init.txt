@@ -1,0 +1,38 @@
+CREATE EXTENSION postgis;
+
+CREATE SEQUENCE ar_bygg_gid_seq
+  INCREMENT 1
+  MINVALUE 1
+  MAXVALUE 9223372036854775807
+  START 483286
+  CACHE 1;
+ALTER TABLE ar_bygg_gid_seq
+  OWNER TO postgres;
+
+CREATE TABLE ar_bygg
+(
+  gid integer NOT NULL DEFAULT nextval('ar_bygg_gid_seq'::regclass),
+  objtype text,
+  id bigint,
+  byggtyp smallint,
+  artype smallint,
+  arskogbon smallint,
+  artreslag smallint,
+  argrunnf smallint,
+  geom geometry(Geometry,25832),
+  CONSTRAINT ar_bygg_gid_pk PRIMARY KEY (gid)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE ar_bygg
+  OWNER TO postgres;
+
+-- Index: ar_bygg_geom_idx
+
+-- DROP INDEX ar_bygg_geom_idx;
+
+CREATE INDEX ar_bygg_geom_idx
+  ON ar_bygg
+  USING gist
+  (geom);
