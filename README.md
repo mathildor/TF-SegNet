@@ -30,6 +30,7 @@ Different optimizers and initializers have been tested on each of the models. Th
 - Stochastic gradient descent
 - Adam
 - Adagrad
+- Momentum
 #### Weight initializers:
 - Variance scale
 - Xavier
@@ -37,17 +38,19 @@ Different optimizers and initializers have been tested on each of the models. Th
 ### AirNet Basic
 - Four encoders and four decoders
 - Stochastic gradient descent optimizer
-- Variance scale weight initializer
+- Xavier initializer
 
 ### AirNet Basic dropout
 Same architecture as Basic, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
 
 
 ### AirNet Extended
-The extended model is much larger and has 5 encoders and 5 decoders. It takes longer time to train, is slower during inference, but achieves higher performance when trained sufficiently.
+The extended model is much larger and has 5 encoders and 5 decoders. It takes longer time to train, it is slower during inference, but achieves higher performance when trained sufficiently.
 
 - Five encoder and decoders
-- 
+- Adagrad optimizer
+- Variance scale weight initializer
+
 
 ### AirNet Extended dropout
 Same architecture as Extended, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
