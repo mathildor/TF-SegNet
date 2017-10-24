@@ -20,8 +20,8 @@ base_dir  = ""
 image_dir = ""
 label_dir = ""
 
-wms_url_std = 'http://www.webatlas.no/wms-orto-std/'
-wms_url_hist = 'http://www.webatlas.no/wms-orto-hist/'
+wms_url_std = ''
+wms_url_hist = ''
 
 #Postgres database specification:
 databaseServer = "localhost"
