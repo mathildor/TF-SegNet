@@ -1,4 +1,4 @@
-# AirNet
+# SegNet --> AirNet
 AirNet is a segmentation network based on [SegNet](https://mi.eng.cam.ac.uk/projects/segnet/), but with some modifications. The goal is to use the model to segment multispectral images, so that geographical information (e.g. building information) can be extracted. The model is implemented in [Tensorflow](https://www.tensorflow.org/).
 
 ## Recognition
