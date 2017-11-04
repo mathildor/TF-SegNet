@@ -17,7 +17,7 @@ I've implemented four different version of the models:
 
 All the AirNet models have:
 - an encoder-decoder structure with different number of layers for the different versions
-- batch normalization with a moving avarage decay of 0.99 
+- batch normalization with a moving avarage decay of 0.99
 - usampling layers that use pooling indices from the maxpool in the encoder. The positions for the original pixels that are kept during maxpooling in the encoder is saved, and used in the decoder to place the pixels back to their original positions.
 
 ![Airnet extended architecture](docs/arch.PNG)
@@ -40,8 +40,12 @@ Different optimizers and initializers have been tested on each of the models. Th
 - Stochastic gradient descent optimizer
 - Xavier initializer
 
+![AirNet basic architecture](docs/Basic.png)
+
+
 ### AirNet Basic dropout
 Same architecture as Basic, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
+![AirNet basic dropout architecture](docs/Basic-dropout.png)
 
 
 ### AirNet Extended
@@ -51,9 +55,11 @@ The extended model is much larger and has 5 encoders and 5 decoders. It takes lo
 - Adagrad optimizer
 - Variance scale weight initializer
 
+![AirNet extended architecture](docs/Extended.png)
 
 ### AirNet Extended dropout
 Same architecture as Extended, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
+![AirNet extended dropout architecture](docs/Extended-dropout.png)
 
 
 ## Usage
@@ -73,7 +79,7 @@ tensorboard --logdir=path/to/log-directory
 To verify the model I used the CamVid dataset. This can be downloaded from: https://github.com/alexgkendall/SegNet-Tutorial, and used in the model by setting the correct paths and dataset size in [AirNet/\__init__.py](https://github.com/Norkart/autoKart/blob/master/AirNet/__init__.py)
 
 The datasets used to train and test the model is constructed through an automatic mapping of vector data and aerial images of Norway. Both a dataset with IR images, and with RGB images was constructed.
-The data is not open sourced. 
+The data is not open sourced.
 
 ![Example dataset](docs/dataset-example.PNG)
 
