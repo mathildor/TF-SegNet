@@ -40,7 +40,7 @@ Different optimizers and initializers have been tested on each of the models. Th
 - Stochastic gradient descent optimizer
 - Xavier initializer
 
-<img src="docs/Basic.png" title="AirNet basic architecture" max-width="80%"/>
+<img src="docs/Basic.png" title="AirNet basic architecture" width="400px"/>
 
 ### AirNet Basic dropout
 Same architecture as Basic, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
@@ -53,13 +53,13 @@ The extended model is much larger and has 5 encoders and 5 decoders. It takes lo
 - Adagrad optimizer
 - Variance scale weight initializer
 
-<img src="docs/Extended.png" title="AirNet extended architecture" max-width="80%"/>
+<img src="docs/Extended.png" title="AirNet extended architecture" width="600px"/>
 
 ### AirNet Extended dropout
 Same architecture as Extended, except for dropoutlayers that are added after the pooling layers, with a dropout rate of 0.5.
 
 
-<img src="docs/Extended-dropout.png" title="AirNet extended dropout architecture" max-width="80%"/>
+<img src="docs/Extended-dropout.png" title="AirNet extended dropout architecture"/>
 
 ## Usage
 ### Requirements
