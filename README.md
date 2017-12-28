@@ -77,8 +77,7 @@ tensorboard --logdir=path/to/log-directory
 ## Dataset
 To verify the model I used the CamVid dataset. This can be downloaded from: https://github.com/alexgkendall/SegNet-Tutorial, and used in the model by setting the correct paths and dataset size in [AirNet/\__init__.py](https://github.com/Norkart/autoKart/blob/master/AirNet/__init__.py)
 
-The datasets used to train and test the model is constructed through an automatic mapping of vector data and aerial images of Norway. Both a dataset with IR images, and with RGB images was constructed.
-The data is not open sourced.
+The datasets of aerial images used to train and test the model is constructed through an automatic mapping of vector data and aerial images of Norway. Both a dataset with IR images, and with RGB images was constructed, both containing around 4500 images. The data is unfortunately not open source.
 
 ![Example dataset](docs/dataset-example.PNG)
 
