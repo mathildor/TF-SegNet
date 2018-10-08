@@ -7,7 +7,7 @@ AirNet is a segmentation network based on [SegNet](https://mi.eng.cam.ac.uk/proj
 
 
 ## Architecture
-*NB! If you are unfamiliar with how convolutional neural networks work, I have written a [blogpost](https://geografiskit.wordpress.com/2017/09/13/maskinlaering-flyfoto/) that explains the basic concepts.*
+*NB! If you are unfamiliar with how convolutional neural networks work, I have written a [blogpost](https://geoit.geoforum.no/2017/12/20/maskinlaering-flyfoto/) that explains the basic concepts.*
 
 I've implemented four different version of the models:
 - [AirNet-basic](#AirNet-basic)
