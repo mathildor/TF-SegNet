@@ -182,7 +182,7 @@ def loadWMS(img_file, url, x_min, y_min, x_max, y_max, x_sz, y_sz, srs, layers, 
     # Do request
     for i in range(10):
         try:
-            req = requests.get(url, stream=True, params=params, headers=hdr, timeout=None)
+            req = requests.get(url, stream=True, params=params, headers=hdr, timeout=30)
             break
         except requests.exceptions.ConnectionError as err:
             time.sleep(10)
